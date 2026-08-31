@@ -70,6 +70,8 @@ export class XfyunTranscriber extends WsTranscriber {
     this.cfg = opts.cfg.xfyun;
     this.utt = 0; // RTASR interims carry the whole current sentence; we key them per utterance
     this.sessionId = null;
+    this.pendingFinal = null; // held-back final, waiting for its punctuation (see _onResult)
+    this._finalTimer = null;
   }
 
   _open() {
@@ -132,18 +134,42 @@ export class XfyunTranscriber extends WsTranscriber {
   _onResult(d) {
     const st = d?.cn?.st;
     if (!st) return;
-    const text = (st.rt || [])
+    let text = (st.rt || [])
       .flatMap((r) => r.ws || [])
       .map((w) => w.cw?.[0]?.w || '')
       .join('')
       .trim();
     const final = String(st.type) === '0';
-    const key = `u${this.utt}`;
-    if (final) this.utt++;
-    this.emit({ key, text, final });
+    // xfyun decides a sentence's closing punctuation only when the next words
+    // arrive, so 。？！ shows up at the START of the following segment. Each
+    // final is therefore held until the next segment begins; a leading
+    // punctuation cluster is moved back onto that held caption.
+    const punct = text.match(/^[，。？！、；：,.?!;:…]+/)?.[0];
+    if (punct) {
+      text = text.slice(punct.length).trim();
+      if (this.pendingFinal) this.pendingFinal.text += punct;
+    }
+    if (this.pendingFinal && (text || !final)) this._flushFinal();
+    if (final) {
+      if (!text) return;
+      this.pendingFinal = { key: `u${this.utt++}`, text };
+      this.emit({ key: this.pendingFinal.key, text, final: false }); // show the corrected text now …
+      clearTimeout(this._finalTimer);
+      this._finalTimer = setTimeout(() => this._flushFinal(), 1500); // … finalize soon even if silence follows
+    } else if (text) {
+      this.emit({ key: `u${this.utt}`, text, final: false });
+    }
+  }
+
+  _flushFinal() {
+    clearTimeout(this._finalTimer);
+    const p = this.pendingFinal;
+    this.pendingFinal = null;
+    if (p?.text) this.emit({ key: p.key, text: p.text, final: true });
   }
 
   _beforeClose() {
+    this._flushFinal();
     const end = this.sessionId ? { end: true, sessionId: this.sessionId } : { end: true };
     try { this.ws.send(JSON.stringify(end)); } catch { /* ignore */ }
   }

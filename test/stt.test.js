@@ -178,12 +178,13 @@ test('xfyun results map to per-utterance interim/final captions', () => {
   tx._onMessage({ action: 'started', code: '0' });
   tx._onMessage(result('1', ['你']));
   tx._onMessage(result('1', ['你好', '爸爸']));
-  tx._onMessage(result('0', ['你好', '爸爸', '。']));
-  tx._onMessage(result('1', ['吃了吗']));
+  tx._onMessage(result('0', ['你好', '爸爸', '。'])); // final is held back, shown as interim …
+  tx._onMessage(result('1', ['吃了吗'])); // … and finalized when the next utterance starts
   tx._onMessage({ action: 'error', code: '10800', desc: 'over max connect limit' });
   assert.deepEqual(events, [
     { key: 'u0', text: '你', final: false },
     { key: 'u0', text: '你好爸爸', final: false },
+    { key: 'u0', text: '你好爸爸。', final: false },
     { key: 'u0', text: '你好爸爸。', final: true },
     { key: 'u1', text: '吃了吗', final: false },
   ]);
@@ -208,11 +209,25 @@ test('xfyun results map to per-utterance interim/final captions', () => {
   });
   llm._onMessage(llmResult('1', ['今天'], false));
   llm._onMessage(llmResult('0', ['今天天气好'], true));
+  // xfyun sends the previous sentence's punctuation at the START of the next
+  // segment; it must be moved back onto the held final, never shown up front.
+  llm._onMessage(llmResult('1', ['？', '明天'], false));
+  llm._flushFinal();
   assert.deepEqual(events, [
     { key: 'u0', text: '今天', final: false },
-    { key: 'u0', text: '今天天气好', final: true },
+    { key: 'u0', text: '今天天气好', final: false },
+    { key: 'u0', text: '今天天气好？', final: true },
+    { key: 'u1', text: '明天', final: false },
   ]);
   assert.deepEqual(statuses, [[true, 'ok']]);
+
+  // a held final flushes on its own after a short delay when silence follows
+  events.length = 0;
+  llm._onMessage(llmResult('0', ['好的'], true)); // closes the utterance '明天' started
+  assert.deepEqual(events, [{ key: 'u1', text: '好的', final: false }]);
+  llm._flushFinal();
+  assert.deepEqual(events.at(-1), { key: 'u1', text: '好的', final: true });
+  llm.close();
 });
 
 test('providerInfo reports audio rate and auto-language support', () => {
