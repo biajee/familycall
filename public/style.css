@@ -72,11 +72,10 @@ button { font: inherit; cursor: pointer; }
 .dot.bad { background: var(--danger); }
 #captions {
   position: relative; z-index: 1; max-height: 42%; overflow-y: auto;
-  padding: 6px 12px; font-size: var(--cap-size); line-height: 1.35;
-  display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch;
+  padding: 4px 12px; font-size: var(--cap-size); line-height: 1.2;
+  display: flex; flex-direction: column; gap: 4px; -webkit-overflow-scrolling: touch;
 }
-.cap { background: #000000a6; border-radius: 12px; padding: 6px 12px; width: fit-content; max-width: 100%; align-self: flex-start; }
-.cap .mark { color: #b8c2d8; font-weight: 700; margin-right: 0.35em; }
+.cap { background: #000000a6; border-radius: 12px; padding: 4px 10px; width: fit-content; max-width: 100%; align-self: flex-start; }
 .cap .txt { word-break: break-word; }
 .cap-self { align-self: flex-end; opacity: 0.75; }
 .cap.interim .txt { color: #c7d0e3; }

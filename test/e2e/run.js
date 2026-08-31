@@ -66,7 +66,7 @@ async function openPhone(label, name, lang, ui) {
 }
 
 const capsOf = (page) => page.evaluate(() => [...document.querySelectorAll('#captions .cap')].map((c) =>
-  `${c.classList.contains('cap-self') ? 'self' : 'peer'}${c.classList.contains('interim') ? '(interim)' : ''} ${c.querySelector('.mark').textContent} ${c.querySelector('.txt').textContent}`));
+  `${c.classList.contains('cap-self') ? 'self' : 'peer'}${c.classList.contains('interim') ? '(interim)' : ''} ${c.querySelector('.txt').textContent}`));
 
 const waitConnected = (page, label) => page
   .waitForFunction(() => window.__familycall.state.connectionState === 'connected', { timeout: 20000 })
@@ -101,10 +101,13 @@ try {
   console.log('B captions:', await capsOf(b));
   console.log('A captions:', await capsOf(a));
 
-  const bPeerMark = await b.evaluate(() => document.querySelector('#captions .cap-peer .mark')?.textContent);
-  if (bPeerMark !== '<') fail(`B should mark incoming captions "<", got "${bPeerMark}"`);
-  const aSelfMark = await a.evaluate(() => document.querySelector('#captions .cap-self .mark')?.textContent);
-  if (aSelfMark !== '>') fail(`A should mark own captions ">", got "${aSelfMark}"`);
+  // Direction is conveyed by alignment: incoming bubbles left, own bubbles right.
+  const aligns = await b.evaluate(() => ({
+    peer: getComputedStyle(document.querySelector('#captions .cap-peer')).alignSelf,
+    self: getComputedStyle(document.querySelector('#captions .cap-self')).alignSelf,
+  }));
+  if (aligns.peer !== 'flex-start') fail(`B incoming captions should align left, got "${aligns.peer}"`);
+  if (aligns.self !== 'flex-end') fail(`B own captions should align right, got "${aligns.self}"`);
 
   for (const [label, page] of [['A', a], ['B', b]]) {
     const ok = await page.evaluate(() => window.__familycall.state.sttOk);

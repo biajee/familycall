@@ -93,7 +93,7 @@ into WeChat. One tap on it opens the app with everything configured. For anythin
 | Parameter | Meaning |
 |-----------|---------|
 | `room`    | Both phones must use the same room name. Treat it like a password: use something unguessable, e.g. `wang-family-7h3k9q`. |
-| `name`    | This person's name (爸爸, 女儿, …); shown in the settings screen. Captions are marked `>` (what you said) and `<` (what they said) instead of names. |
+| `name`    | This person's name (爸爸, 女儿, …); shown in the settings screen. Captions show direction by alignment: incoming on the left, your own on the right. |
 | `lang`    | What this person speaks: `zh-CN`, `en-US`, or `auto` (中/英 mixed; OpenAI only). |
 | `ui`      | Interface language: `zh` or `en`. |
 | `simple=1`| Simple mode: the app opens with a single huge "开始通话" button (for Dad). |

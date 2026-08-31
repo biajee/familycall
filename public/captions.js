@@ -20,16 +20,13 @@ export class Captions {
     const key = `${speaker}:${seg}`;
     let line = this.lines.get(key);
     if (!line) {
-      const self = speaker === this.self;
+      // Direction is shown by alignment alone: incoming on the left, outgoing on the right.
       line = document.createElement('div');
-      line.className = 'cap ' + (self ? 'cap-self' : 'cap-peer');
+      line.className = 'cap ' + (speaker === this.self ? 'cap-self' : 'cap-peer');
       line.dataset.speaker = speaker;
-      const mark = document.createElement('span');
-      mark.className = 'mark';
-      mark.textContent = self ? '>' : '<'; // > outgoing (me), < incoming (them)
       const txt = document.createElement('span');
       txt.className = 'txt';
-      line.append(mark, txt);
+      line.append(txt);
       this.el.appendChild(line);
       this.lines.set(key, line);
       while (this.el.children.length > this.max) {
