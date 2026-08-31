@@ -146,17 +146,29 @@ try {
 
   // Non-simple mode: the invite button is offered while waiting alone in the room.
   await c.goto(`${base}/?room=e2e-wait&simple=0`, { waitUntil: 'networkidle0' });
+  await c.evaluate(() => { window.__familycall.captions.fadeMs = 1000; }); // speed up the 30s fade for the test
   await c.click('#setupForm button[type=submit]');
-  await c.waitForFunction(() => !document.getElementById('btnInviteCall').classList.contains('hidden'), { timeout: 10000 });
-  console.log('C: invite button shown while waiting for the peer');
+  await c.waitForFunction(() => document.getElementById('btnInviteCall').offsetParent !== null, { timeout: 10000 });
+  console.log('C: room-link button available in the controls');
+
+  // Caption bubbles fade out (default 30s after their last update; 1s here).
+  await c.waitForFunction(
+    () => [...document.querySelectorAll('#captions .cap .txt')].some((e) => /test caption 1\./.test(e.textContent)),
+    { timeout: 20000 },
+  );
+  await c.waitForFunction(
+    () => ![...document.querySelectorAll('#captions .cap .txt')].some((e) => /test caption 1\./.test(e.textContent)),
+    { timeout: 20000 },
+  );
+  console.log('C: caption faded out after the configured delay');
   await c.screenshot({ path: `${artifacts}/phone-c-waiting.png` });
   await ctxC.close();
 
   await a.click('#btnHangup'); // confirm dialog auto-accepted
   await b.waitForFunction(() => document.getElementById('callStatus').textContent.includes('对方已离开'), { timeout: 10000 });
   console.log('B: saw peer-left after A hung up');
-  await b.waitForFunction(() => !document.getElementById('btnInviteCall').classList.contains('hidden'), { timeout: 5000 });
-  console.log('B: room-link button shown while waiting (simple mode)');
+  await b.waitForFunction(() => document.getElementById('btnInviteCall').offsetParent !== null, { timeout: 5000 });
+  console.log('B: room-link button available in the controls while waiting');
   await a.waitForSelector('#quickJoin', { visible: true });
 
   await a.click('#quickJoin');

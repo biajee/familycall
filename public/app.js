@@ -111,11 +111,6 @@ function setStatus(text) {
   ui.status.classList.toggle('hidden', !text);
 }
 
-// While waiting alone in the room, offer the room link right on the call screen.
-function updateInviteCallBtn() {
-  const waiting = state.inCall && !state.peer;
-  ui.btnInviteCall.classList.toggle('hidden', !waiting);
-}
 
 function setSttStatus(ok, message) {
   state.sttOk = ok;
@@ -234,7 +229,6 @@ function handleMessage(msg) {
       if (msg.stt.autoLang === false && profile.lang === 'auto') toast(T.noAutoLang, 6000);
       if (msg.peers && msg.peers[0]) onPeerJoined(msg.peers[0], msg.polite);
       else setStatus(T.waitingPeer);
-      updateInviteCallBtn();
       break;
     case 'peer-joined':
       onPeerJoined(msg.peer, msg.polite);
@@ -267,7 +261,6 @@ function handleMessage(msg) {
 function onPeerJoined(peer, polite) {
   state.peer = peer;
   state.polite = polite;
-  updateInviteCallBtn();
   teardownPeer();
   setStatus(T.connecting);
   state.call = new Call({
@@ -298,7 +291,6 @@ function onPeerLeft() {
   teardownPeer();
   state.peer = null;
   setStatus(`${T.peerLeft} · ${T.waitingPeer}`);
-  updateInviteCallBtn();
 }
 
 function teardownPeer() {
@@ -353,7 +345,6 @@ function leaveCall() {
   ui.btnMute.classList.remove('active');
   ui.btnCam.classList.remove('active');
   setStatus('');
-  updateInviteCallBtn();
   idleScreen();
 }
 

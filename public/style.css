@@ -62,11 +62,6 @@ button { font: inherit; cursor: pointer; }
   padding: 12px 18px; background: #000000aa; border-radius: 14px;
   font-size: 20px; text-align: center;
 }
-#btnInviteCall {
-  position: absolute; left: 50%; top: 46%; transform: translateX(-50%); max-width: 86%;
-  padding: 12px 20px; border: 1px solid #ffffff33; border-radius: 14px;
-  background: #000000aa; color: #fff; font-size: 19px; white-space: nowrap;
-}
 #capBar {
   position: relative; z-index: 1; margin-top: auto;
   display: flex; align-items: center; gap: 8px; padding: 4px 14px;
@@ -83,7 +78,9 @@ button { font: inherit; cursor: pointer; }
 .cap {
   background: #000000b0; border-radius: 8px; padding: 2px 8px; color: #fff;
   width: fit-content; max-width: 100%; align-self: flex-start;
+  transition: opacity 0.9s ease;
 }
+.cap.fadeout { opacity: 0; }
 .cap .txt { word-break: break-word; }
 .cap-self { align-self: flex-end; }
 .cap.interim .txt { color: #f2f5fa; }
