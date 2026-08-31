@@ -56,6 +56,36 @@ test('openai events accumulate deltas per item and finalize', () => {
   ]);
 });
 
+test('openai gpt-live commits the audio buffer to close utterances', () => {
+  const sent = [];
+  const cfg = { sttPrompt: '', openai: { apiKey: 'k', url: 'wss://x', model: 'gpt-live-transcribe', delay: 'low' } };
+  const tx = new OpenAITranscriber({ lang: 'en-US', cfg, onText() {}, onStatus() {} });
+  tx.ws = { readyState: 1, send: (s) => sent.push(JSON.parse(s)) }; // 1 === WebSocket.OPEN
+
+  assert.equal(tx._maybeCommit(5000), false, 'no pending utterance yet');
+  tx._onMessage({ type: 'conversation.item.input_audio_transcription.delta', item_id: 'i1', delta: 'hi' });
+  tx._pendingSince = 1000; tx._lastDeltaAt = 1000; tx._lastCommitAt = -10000;
+  assert.equal(tx._maybeCommit(1800), false, 'still speaking (delta 0.8s ago)');
+  assert.equal(tx._maybeCommit(2300), true, 'quiet for 1.3s -> commit');
+  assert.deepEqual(sent.at(-1), { type: 'input_audio_buffer.commit' });
+  assert.equal(tx._maybeCommit(4000), false, 'nothing pending after commit');
+
+  // continuous speech is force-committed at the max utterance length
+  tx._pendingSince = 10_000; tx._lastDeltaAt = 25_500; tx._lastCommitAt = 0;
+  assert.equal(tx._maybeCommit(25_600), true, 'utterance over 15s -> forced commit');
+
+  // completed clears the pending state
+  tx._pendingSince = 50_000;
+  tx._onMessage({ type: 'conversation.item.input_audio_transcription.completed', item_id: 'i1', transcript: 'hi.' });
+  assert.equal(tx._pendingSince, 0);
+
+  // benign commit-vs-silence race must not flip the status light
+  let status;
+  const tx2 = new OpenAITranscriber({ lang: 'en-US', cfg, onText() {}, onStatus: (ok) => { status = ok; } });
+  tx2._onMessage({ type: 'error', error: { code: 'input_audio_buffer_commit_empty', message: 'buffer empty' } });
+  assert.equal(status, undefined);
+});
+
 test('deepgram results are merged into utterances', () => {
   const events = [];
   const cfg = { deepgram: { apiKey: 'k', url: 'wss://x', model: 'nova-3' } };
