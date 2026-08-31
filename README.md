@@ -86,7 +86,7 @@ Logs: `journalctl -u stt-videocall -f`, `tail -f /var/log/turnserver.log`.
 
 Everything about a phone is in its link, so you can prepare both links on your computer and send them by WeChat.
 
-The easy way: open the app, fill in the room, and tap **📋 复制房间链接 / Copy room link** (also offered on the
+The easy way: open the app, fill in the room, and tap **🔗 复制房间链接 / Copy room link** (also offered on the
 call screen while you wait for the other person). It copies a generic invite — just the room (and key) — that you
 can paste into WeChat. Anyone who opens it can join with one tap: they get simple mode, their phone's own
 language, and an automatically assigned name. For per-person settings, build the link by hand:
@@ -133,7 +133,7 @@ so Dad's icon always opens straight into the family room with the Chinese UI and
 There is no ringing (yet). Agree on a time (or send a WeChat message "打开家庭通话"), both tap the icon, then
 **开始通话 / Start call**. Whoever opens it first sees "等待对方加入…" until the other one joins.
 
-In-call buttons: 🎤 mute · 📷 camera off · 🔄 front/back camera · A− / A+ caption size · 📵 hang up.
+In-call buttons: 🔗 copy room link · 🎤 mute · 📷 camera off · 🔄 front/back camera · A− / A+ caption size · 📵 hang up.
 The dot above the captions is green when the caption service is connected.
 
 ## Configuration (`.env`)
