@@ -42,6 +42,10 @@ China, etc.). Both phones only ever talk to **your own server**.
      which handles Mandarin and English (including switching between them) with streaming partial results.
    * **Deepgram** (`DEEPGRAM_API_KEY`) — Nova-3 supports `zh-CN` and `en-US`; cheaper, but no mixed-language
      mode for Chinese, so each speaker must pick one language.
+   * **iFlytek 讯飞** (`XFYUN_APP_ID` + `XFYUN_API_KEY`) — the 实时语音转写 (RTASR) service from
+     [xfyun.cn](https://www.xfyun.cn/services/rtasr), very strong for Mandarin and transcribes Chinese with
+     embedded English by default. Buy hour packages in the xfyun console (a speaker set to `en-US` uses their
+     English model, which must be enabled on the account). Switch any time with `STT_PROVIDER=xfyun`.
 
    Both are cheap for family use: a 30-minute call transcribes ~60 minutes of audio (both sides). Check the
    vendor's current per-minute pricing; expect it to be on the order of cents per call.
@@ -142,7 +146,7 @@ See [`.env.example`](.env.example) for every option. The important ones:
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `STT_PROVIDER` | auto (`openai` if key set, else `deepgram`, else `mock`) | |
+| `STT_PROVIDER` | auto (`openai` > `deepgram` > `xfyun` by key presence, else `mock`) | Set explicitly to switch providers. |
 | `OPENAI_TRANSCRIBE_MODEL` | `gpt-live-transcribe` | `gpt-4o-transcribe` / `gpt-4o-mini-transcribe` also work. |
 | `OPENAI_TRANSCRIBE_DELAY` | `low` | `minimal` … `xhigh`: lower = faster partial text, higher = more accurate. |
 | `DEEPGRAM_MODEL` | `nova-3` | |
@@ -173,7 +177,7 @@ server/
   rooms.js        room state, 2-peer limit, polite/impolite assignment for perfect negotiation
   turn.js         TURN REST credentials (coturn use-auth-secret)
   static.js       static files + per-link web-app manifest
-  stt/            transcriber providers: base.js (reconnecting WS), openai.js, deepgram.js, mock.js
+  stt/            transcriber providers: base.js (reconnecting WS), openai.js, deepgram.js, xfyun.js, mock.js
 public/
   app.js          UI + call lifecycle          peer.js      RTCPeerConnection, perfect negotiation, ICE restart
   signaling.js    reconnecting WebSocket       capture.js   mic → AudioWorklet → int16 PCM chunks

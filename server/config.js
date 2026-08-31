@@ -35,7 +35,9 @@ function list(v) {
 
 export function loadConfig(env = process.env) {
   const sttProvider = env.STT_PROVIDER
-    || (env.OPENAI_API_KEY ? 'openai' : env.DEEPGRAM_API_KEY ? 'deepgram' : 'mock');
+    || (env.OPENAI_API_KEY ? 'openai'
+      : env.DEEPGRAM_API_KEY ? 'deepgram'
+        : env.XFYUN_APP_ID && env.XFYUN_API_KEY ? 'xfyun' : 'mock');
   return {
     root: ROOT,
     host: env.HOST || '127.0.0.1',
@@ -56,6 +58,11 @@ export function loadConfig(env = process.env) {
       apiKey: env.DEEPGRAM_API_KEY || '',
       url: env.DEEPGRAM_URL || 'wss://api.deepgram.com/v1/listen',
       model: env.DEEPGRAM_MODEL || 'nova-3',
+    },
+    xfyun: {
+      appId: env.XFYUN_APP_ID || '',
+      apiKey: env.XFYUN_API_KEY || '',
+      url: env.XFYUN_RTASR_URL || 'wss://rtasr.xfyun.cn/v1/ws',
     },
     stunUrls: list(env.STUN_URLS),
     turnUrls: list(env.TURN_URLS),

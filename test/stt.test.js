@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { MockTranscriber } from '../server/stt/mock.js';
 import { OpenAITranscriber, openaiLanguages } from '../server/stt/openai.js';
 import { DeepgramTranscriber, deepgramLanguage } from '../server/stt/deepgram.js';
+import { XfyunTranscriber, xfyunSigna, xfyunUrl } from '../server/stt/xfyun.js';
 import { providerInfo } from '../server/stt/index.js';
 
 test('mock transcriber emits interim then final captions from audio volume', () => {
@@ -120,9 +122,57 @@ test('deepgram results are merged into utterances', () => {
   assert.equal(events.at(-1).text, '你好爸爸', 'Chinese segments are joined without spaces');
 });
 
+test('xfyun RTASR url carries the documented signature', () => {
+  // signa = Base64(HmacSHA1(MD5hex(appid + ts), apiKey))
+  const md5 = crypto.createHash('md5').update('app1' + '1700000000').digest('hex');
+  const expected = crypto.createHmac('sha1', 'key1').update(md5).digest('base64');
+  assert.equal(xfyunSigna('app1', 'key1', '1700000000'), expected);
+
+  const cfg = { appId: 'app1', apiKey: 'key1', url: 'wss://rtasr.xfyun.cn/v1/ws' };
+  const url = new URL(xfyunUrl(cfg, 'zh-CN', 1700000000 * 1000));
+  assert.equal(url.searchParams.get('appid'), 'app1');
+  assert.equal(url.searchParams.get('ts'), '1700000000');
+  assert.equal(url.searchParams.get('signa'), expected);
+  assert.equal(url.searchParams.get('lang'), null, 'default model handles zh with mixed en');
+  const en = new URL(xfyunUrl(cfg, 'en-US', 1700000000 * 1000));
+  assert.equal(en.searchParams.get('lang'), 'en');
+});
+
+test('xfyun results map to per-utterance interim/final captions', () => {
+  const events = [];
+  const statuses = [];
+  const cfg = { xfyun: { appId: 'a', apiKey: 'k', url: 'wss://x' } };
+  const tx = new XfyunTranscriber({ lang: 'zh-CN', cfg, onText: (e) => events.push(e), onStatus: (ok, m) => statuses.push([ok, m]) });
+
+  const result = (type, words) => ({
+    action: 'result',
+    data: JSON.stringify({ seg_id: 1, cn: { st: { type, rt: [{ ws: words.map((w) => ({ cw: [{ w }] })) }] } } }),
+  });
+  tx._onMessage({ action: 'started', code: '0' });
+  tx._onMessage(result('1', ['你']));
+  tx._onMessage(result('1', ['你好', '爸爸']));
+  tx._onMessage(result('0', ['你好', '爸爸', '。']));
+  tx._onMessage(result('1', ['吃了吗']));
+  tx._onMessage({ action: 'error', code: '10800', desc: 'over max connect limit' });
+  assert.deepEqual(events, [
+    { key: 'u0', text: '你', final: false },
+    { key: 'u0', text: '你好爸爸', final: false },
+    { key: 'u0', text: '你好爸爸。', final: true },
+    { key: 'u1', text: '吃了吗', final: false },
+  ]);
+  assert.deepEqual(statuses, [[true, 'ok'], [false, 'over max connect limit']]);
+
+  // binary audio is re-framed to RTASR's 1280-byte chunks
+  const sent = [];
+  tx.ws = { send: (b) => sent.push(b.length) };
+  tx._sendAudio(Buffer.alloc(3200));
+  assert.deepEqual(sent, [1280, 1280, 640]);
+});
+
 test('providerInfo reports audio rate and auto-language support', () => {
   assert.deepEqual(providerInfo({ sttProvider: 'openai' }), { name: 'openai', audioRate: 24000, autoLang: true });
   assert.deepEqual(providerInfo({ sttProvider: 'deepgram' }), { name: 'deepgram', audioRate: 16000, autoLang: false });
+  assert.deepEqual(providerInfo({ sttProvider: 'xfyun' }), { name: 'xfyun', audioRate: 16000, autoLang: true });
   assert.deepEqual(providerInfo({ sttProvider: 'mock' }), { name: 'mock', audioRate: 16000, autoLang: true });
   assert.throws(() => providerInfo({ sttProvider: 'nope' }), /Unknown STT_PROVIDER/);
 });

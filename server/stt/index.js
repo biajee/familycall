@@ -1,8 +1,9 @@
 import { MockTranscriber } from './mock.js';
 import { OpenAITranscriber } from './openai.js';
 import { DeepgramTranscriber } from './deepgram.js';
+import { XfyunTranscriber } from './xfyun.js';
 
-const PROVIDERS = { mock: MockTranscriber, openai: OpenAITranscriber, deepgram: DeepgramTranscriber };
+const PROVIDERS = { mock: MockTranscriber, openai: OpenAITranscriber, deepgram: DeepgramTranscriber, xfyun: XfyunTranscriber };
 
 export function providerClass(name) {
   const cls = PROVIDERS[name];
