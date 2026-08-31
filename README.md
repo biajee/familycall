@@ -86,6 +86,10 @@ Logs: `journalctl -u stt-videocall -f`, `tail -f /var/log/turnserver.log`.
 
 Everything about a phone is in its link, so you can prepare both links on your computer and send them by WeChat.
 
+The easy way: open the app, fill in your name and room, and tap **📋 复制爸爸的链接 / Copy Dad's link** — it
+copies a ready-made link for Dad (same room, Chinese UI, simple mode, big captions) that you can paste straight
+into WeChat. One tap on it opens the app with everything configured. For anything custom, build the link by hand:
+
 | Parameter | Meaning |
 |-----------|---------|
 | `room`    | Both phones must use the same room name. Treat it like a password: use something unguessable, e.g. `wang-family-7h3k9q`. |

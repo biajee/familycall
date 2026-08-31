@@ -111,6 +111,13 @@ try {
     if (ok !== true) fail(`${label}: STT status is ${ok}`);
   }
 
+  const invite = await a.evaluate(() => window.__familycall.inviteLink());
+  const wantInvite = ['room=e2e-room', 'lang=zh-CN', 'ui=zh', 'simple=1', 'font=40', `name=${encodeURIComponent('爸爸')}`];
+  for (const part of wantInvite) {
+    if (!invite || !invite.includes(part)) fail(`invite link missing "${part}": ${invite}`);
+  }
+  console.log('A invite link:', invite);
+
   const before = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
   await b.click('#btnFontUp');
   const after = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);

@@ -30,6 +30,7 @@ const ui = {
   btnFontUp: $('#btnFontUp'),
   btnFontDown: $('#btnFontDown'),
   btnHangup: $('#btnHangup'),
+  btnInvite: $('#btnInvite'),
 };
 
 const state = {
@@ -58,7 +59,7 @@ let T = STRINGS[profile.ui];
 let toastTimer = null;
 
 // Debug / end-to-end test hook.
-window.__familycall = { state, profile, captions };
+window.__familycall = { state, profile, captions, inviteLink: (...a) => inviteLink(...a) };
 
 /* ---------- profile ---------- */
 
@@ -359,6 +360,40 @@ ui.form.addEventListener('submit', (e) => {
   T = applyI18n(profile.ui);
   joinCall();
 });
+
+// Ready-made link for Dad: same room (and key), Chinese UI, simple mode, big
+// captions. Sent over WeChat, one tap on it opens straight into the call screen.
+function inviteLink() {
+  const fd = new FormData(ui.form);
+  const room = (String(fd.get('room') || '').trim() || profile.room || '').toLowerCase();
+  if (!room) return null;
+  const p = new URLSearchParams({
+    room, name: '爸爸', lang: 'zh-CN', ui: 'zh', simple: '1', font: '40',
+  });
+  if (profile.key) p.set('key', profile.key);
+  return `${location.origin}/?${p.toString()}`;
+}
+
+async function copyInvite() {
+  const url = inviteLink();
+  if (!url) { toast(T.inviteNeedRoom); return; }
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(url);
+    ok = true;
+  } catch {
+    const ta = document.createElement('textarea'); // older vendor browsers
+    ta.value = url;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+    ta.remove();
+  }
+  if (ok) toast(T.inviteCopied, 6000);
+  else window.prompt(T.inviteManual, url);
+}
+ui.btnInvite.addEventListener('click', copyInvite);
 
 ui.quickJoin.addEventListener('click', () => joinCall());
 ui.quickSettings.addEventListener('click', () => {

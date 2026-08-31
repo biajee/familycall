@@ -36,6 +36,10 @@ export const STRINGS = {
     captionsIdle: '字幕',
     tapToPlay: '请点击屏幕以播放声音',
     noAutoLang: '服务器不支持自动识别语言，已按中文识别',
+    inviteCopy: '📋 复制爸爸的链接',
+    inviteCopied: '链接已复制，去微信粘贴发给爸爸。他点开链接就能进入通话。',
+    inviteNeedRoom: '请先填写房间号',
+    inviteManual: '请手动复制这个链接：',
   },
   en: {
     appTitle: 'Family Call',
@@ -74,6 +78,10 @@ export const STRINGS = {
     captionsIdle: 'Captions',
     tapToPlay: 'Tap the screen to play sound',
     noAutoLang: 'Server cannot auto-detect language; using Chinese',
+    inviteCopy: '📋 Copy Dad’s link',
+    inviteCopied: 'Link copied — paste it to Dad in WeChat. One tap on it puts him in the call.',
+    inviteNeedRoom: 'Enter a room name first',
+    inviteManual: 'Copy this link manually:',
   },
 };
 

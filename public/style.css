@@ -38,6 +38,10 @@ button { font: inherit; cursor: pointer; }
   background: var(--accent); color: #04120a; font-size: 24px; font-weight: 700;
 }
 .primary.huge { font-size: 36px; padding: 40px 20px; margin: auto 0; }
+.secondary {
+  display: block; width: 100%; margin-top: 12px; padding: 14px; border-radius: 14px;
+  background: var(--panel); color: var(--fg); border: 1px solid #2c3a5a; font-size: 19px;
+}
 .link { background: none; border: 0; color: var(--muted); font-size: 18px; padding: 16px; }
 #quick { justify-content: center; }
 #quick h1 { font-size: 36px; }
