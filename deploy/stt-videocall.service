@@ -1,0 +1,21 @@
+[Unit]
+Description=stt-videocall signaling + captions server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=videocall
+WorkingDirectory=/opt/stt-videocall
+EnvironmentFile=/opt/stt-videocall/.env
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/stt-videocall
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

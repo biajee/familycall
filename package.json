@@ -1,0 +1,17 @@
+{
+  "name": "stt-videocall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted 1:1 video calling with live English/Mandarin captions for hard-of-hearing family members",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "STT_PROVIDER=mock node server/index.js",
+    "test": "node --test test/",
+    "test:e2e": "node test/e2e/run.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
