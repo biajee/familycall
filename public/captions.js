@@ -1,6 +1,6 @@
 /** Renders caption segments; interim text is replaced in place until the segment is final. */
 export class Captions {
-  constructor(el, maxLines = 12, fadeMs = 30_000) {
+  constructor(el, maxLines = 12, fadeMs = 20_000) {
     this.el = el;
     this.max = maxLines;
     this.fadeMs = fadeMs; // a bubble fades out this long after its last update
@@ -28,8 +28,8 @@ export class Captions {
     clearTimeout(line._fadeTimer);
     line.classList.remove('fadeout');
     line._fadeTimer = setTimeout(() => {
-      line.classList.add('fadeout'); // CSS transitions to opacity 0 …
-      line._fadeTimer = setTimeout(() => this._drop(line), 1100); // … then remove
+      line.classList.add('fadeout'); // CSS transitions to opacity 0 over 10s …
+      line._fadeTimer = setTimeout(() => this._drop(line), 10_500); // … then remove
     }, this.fadeMs);
   }
 
