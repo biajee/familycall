@@ -15,6 +15,7 @@ test('.env loader strips inline comments and handles quotes', () => {
     'T_QUOTED="hello # world"  # trailing note',
     "T_SINGLE='x y'",
     'T_EMPTY=',
+    'T_EMPTY_COMMENT=               # optional shared secret; phones must use ?key=',
     'T_EXISTING=from-file',
   ].join('\n'));
   process.env.T_EXISTING = 'from-env';
@@ -25,6 +26,7 @@ test('.env loader strips inline comments and handles quotes', () => {
     assert.equal(process.env.T_QUOTED, 'hello # world');
     assert.equal(process.env.T_SINGLE, 'x y');
     assert.equal(process.env.T_EMPTY, '');
+    assert.equal(process.env.T_EMPTY_COMMENT, '', 'empty value with trailing comment stays empty');
     assert.equal(process.env.T_EXISTING, 'from-env', 'existing env vars win');
   } finally {
     rmSync(dir, { recursive: true, force: true });
