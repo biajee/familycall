@@ -101,13 +101,41 @@ try {
   console.log('B captions:', await capsOf(b));
   console.log('A captions:', await capsOf(a));
 
-  // Direction is conveyed by alignment: incoming bubbles left, own bubbles right.
+  // Direction is conveyed by alignment: incoming bubbles left, own bubbles right,
+  // each with a wide margin on the side facing the center.
   const aligns = await b.evaluate(() => ({
     peer: getComputedStyle(document.querySelector('#captions .cap-peer')).alignSelf,
     self: getComputedStyle(document.querySelector('#captions .cap-self')).alignSelf,
+    peerGap: parseFloat(getComputedStyle(document.querySelector('#captions .cap-peer')).marginRight),
+    selfGap: parseFloat(getComputedStyle(document.querySelector('#captions .cap-self')).marginLeft),
   }));
   if (aligns.peer !== 'flex-start') fail(`B incoming captions should align left, got "${aligns.peer}"`);
   if (aligns.self !== 'flex-end') fail(`B own captions should align right, got "${aligns.self}"`);
+  if (!(aligns.peerGap > 20)) fail(`peer bubble should keep a right margin, got ${aligns.peerGap}px`);
+  if (!(aligns.selfGap > 20)) fail(`self bubble should keep a left margin, got ${aligns.selfGap}px`);
+
+  // Tap a bubble -> the copy handler receives its text.
+  await b.evaluate(() => {
+    window.__copiedText = null;
+    window.__familycall.captions.onCopy = (t) => { window.__copiedText = t; };
+  });
+  const bubble = await b.$('#captions .cap-peer');
+  await bubble.click();
+  const copied = await b.evaluate(() => window.__copiedText);
+  if (!copied || !/test caption/.test(copied)) fail(`tap-to-copy got "${copied}"`);
+  console.log(`B: tap copied "${copied}"`);
+
+  // Drag a left bubble toward the center -> delete button appears; clicking it removes the bubble.
+  await b.evaluate((el) => { el.dataset.testMark = '1'; }, bubble);
+  const box = await bubble.boundingBox();
+  await b.mouse.move(box.x + 10, box.y + box.height / 2);
+  await b.mouse.down();
+  for (let i = 1; i <= 6; i++) await b.mouse.move(box.x + 10 + i * 12, box.y + box.height / 2);
+  await b.mouse.up();
+  await b.waitForFunction(() => !!document.querySelector('#captions .cap[data-test-mark] .del'), { timeout: 3000 });
+  await b.click('#captions .cap[data-test-mark] .del');
+  await b.waitForFunction(() => !document.querySelector('#captions .cap[data-test-mark]'), { timeout: 3000 });
+  console.log('B: swipe revealed delete, bubble removed');
 
   for (const [label, page] of [['A', a], ['B', b]]) {
     const ok = await page.evaluate(() => window.__familycall.state.sttOk);

@@ -77,12 +77,20 @@ button { font: inherit; cursor: pointer; }
 }
 .cap {
   background: #000000b0; border-radius: 8px; padding: 2px 8px; color: #fff;
-  width: fit-content; max-width: 100%; align-self: flex-start;
+  width: fit-content; max-width: 85%; align-self: flex-start;
   transition: opacity 10s ease;
+  display: flex; align-items: center; gap: 6px;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
 .cap.fadeout { opacity: 0; }
-.cap .txt { word-break: break-word; }
-.cap-self { align-self: flex-end; }
+.cap .txt { word-break: break-word; min-width: 0; }
+.cap-peer { margin-right: 15%; }
+.cap-self { align-self: flex-end; margin-left: 15%; }
+.cap .del {
+  flex: none; border: 0; padding: 0; width: 1.15em; height: 1.15em; border-radius: 50%;
+  background: var(--danger); color: #fff; font-size: 0.75em; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
 .cap.interim .txt { color: #f2f5fa; }
 #controls {
   position: relative; z-index: 1;

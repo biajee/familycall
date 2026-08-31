@@ -409,6 +409,7 @@ async function copyLink(url, copiedMsg) {
 }
 ui.btnInvite.addEventListener('click', () => copyLink(roomLink(), T.inviteCopied));
 ui.btnInviteCall.addEventListener('click', () => copyLink(roomLink(), T.inviteCopied));
+captions.onCopy = (text) => copyLink(text, T.capCopied); // tap a caption bubble to copy it
 
 ui.quickJoin.addEventListener('click', () => joinCall());
 ui.quickSettings.addEventListener('click', () => {

@@ -40,6 +40,7 @@ export const STRINGS = {
     inviteCopied: '链接已复制，用微信发给对方，点开就能加入通话。',
     inviteNeedRoom: '请先填写房间号',
     inviteManual: '请手动复制这个链接：',
+    capCopied: '文字已复制',
   },
   en: {
     appTitle: 'Family Call',
@@ -82,6 +83,7 @@ export const STRINGS = {
     inviteCopied: 'Link copied — send it over; one tap joins the call.',
     inviteNeedRoom: 'Enter a room name first',
     inviteManual: 'Copy this link manually:',
+    capCopied: 'Text copied',
   },
 };
 
