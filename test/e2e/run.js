@@ -155,6 +155,8 @@ try {
   await a.click('#btnHangup'); // confirm dialog auto-accepted
   await b.waitForFunction(() => document.getElementById('callStatus').textContent.includes('对方已离开'), { timeout: 10000 });
   console.log('B: saw peer-left after A hung up');
+  await b.waitForFunction(() => !document.getElementById('btnInviteCall').classList.contains('hidden'), { timeout: 5000 });
+  console.log('B: room-link button shown while waiting (simple mode)');
   await a.waitForSelector('#quickJoin', { visible: true });
 
   await a.click('#quickJoin');

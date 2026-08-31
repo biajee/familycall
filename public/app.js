@@ -111,10 +111,9 @@ function setStatus(text) {
   ui.status.classList.toggle('hidden', !text);
 }
 
-// While waiting alone in the room, offer the invite link right on the call
-// screen (hidden in simple mode to keep Dad's screen minimal).
+// While waiting alone in the room, offer the room link right on the call screen.
 function updateInviteCallBtn() {
-  const waiting = state.inCall && !state.peer && !profile.simple;
+  const waiting = state.inCall && !state.peer;
   ui.btnInviteCall.classList.toggle('hidden', !waiting);
 }
 
