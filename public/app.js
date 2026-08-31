@@ -31,6 +31,7 @@ const ui = {
   btnFontDown: $('#btnFontDown'),
   btnHangup: $('#btnHangup'),
   btnInvite: $('#btnInvite'),
+  btnMyLink: $('#btnMyLink'),
 };
 
 const state = {
@@ -59,7 +60,7 @@ let T = STRINGS[profile.ui];
 let toastTimer = null;
 
 // Debug / end-to-end test hook.
-window.__familycall = { state, profile, captions, inviteLink: (...a) => inviteLink(...a) };
+window.__familycall = { state, profile, captions, inviteLink: (...a) => inviteLink(...a), myLink: (...a) => myLink(...a) };
 
 /* ---------- profile ---------- */
 
@@ -357,11 +358,25 @@ ui.form.addEventListener('submit', (e) => {
   joinCall();
 });
 
+// Values as currently on screen: the live form when the setup screen is open,
+// the saved profile otherwise (the hidden form's selects would report defaults).
+function currentConfig() {
+  if (ui.setup.classList.contains('hidden')) return profile;
+  const fd = new FormData(ui.form);
+  return {
+    ...profile,
+    name: String(fd.get('name') || '').trim().slice(0, 32),
+    room: String(fd.get('room') || '').trim().toLowerCase(),
+    lang: String(fd.get('lang')),
+    ui: String(fd.get('ui')),
+    simple: fd.get('simple') === 'on',
+  };
+}
+
 // Ready-made link for Dad: same room (and key), Chinese UI, simple mode, big
 // captions. Sent over WeChat, one tap on it opens straight into the call screen.
 function inviteLink() {
-  const fd = new FormData(ui.form);
-  const room = (String(fd.get('room') || '').trim() || profile.room || '').toLowerCase();
+  const room = currentConfig().room;
   if (!room) return null;
   const p = new URLSearchParams({
     room, name: '爸爸', lang: 'zh-CN', ui: 'zh', simple: '1', font: '40',
@@ -370,8 +385,21 @@ function inviteLink() {
   return `${location.origin}/?${p.toString()}`;
 }
 
-async function copyInvite() {
-  const url = inviteLink();
+// This phone's own configuration as a link, for installing/sharing.
+function myLink() {
+  const c = currentConfig();
+  if (!c.room) return null;
+  const p = new URLSearchParams({ room: c.room });
+  if (c.name) p.set('name', c.name);
+  p.set('lang', c.lang);
+  p.set('ui', c.ui);
+  if (c.simple) p.set('simple', '1');
+  p.set('font', String(c.font));
+  if (profile.key) p.set('key', profile.key);
+  return `${location.origin}/?${p.toString()}`;
+}
+
+async function copyLink(url, copiedMsg) {
   if (!url) { toast(T.inviteNeedRoom); return; }
   let ok = false;
   try {
@@ -386,10 +414,11 @@ async function copyInvite() {
     try { ok = document.execCommand('copy'); } catch { /* ignore */ }
     ta.remove();
   }
-  if (ok) toast(T.inviteCopied, 6000);
+  if (ok) toast(copiedMsg, 6000);
   else window.prompt(T.inviteManual, url);
 }
-ui.btnInvite.addEventListener('click', copyInvite);
+ui.btnInvite.addEventListener('click', () => copyLink(inviteLink(), T.inviteCopied));
+ui.btnMyLink.addEventListener('click', () => copyLink(myLink(), T.linkCopied));
 
 ui.quickJoin.addEventListener('click', () => joinCall());
 ui.quickSettings.addEventListener('click', () => {

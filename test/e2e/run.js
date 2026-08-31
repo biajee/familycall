@@ -121,6 +121,12 @@ try {
   }
   console.log('A invite link:', invite);
 
+  const mine = await a.evaluate(() => window.__familycall.myLink());
+  for (const part of ['room=e2e-room', 'name=Alice', 'lang=en-US', 'ui=en', 'simple=1']) {
+    if (!mine || !mine.includes(part)) fail(`my link missing "${part}": ${mine}`);
+  }
+  console.log('A my link:', mine);
+
   const before = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
   await b.click('#btnFontUp');
   const after = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
