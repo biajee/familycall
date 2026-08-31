@@ -112,7 +112,8 @@ export class Captions {
     }
     line.querySelector('.txt').textContent = text;
     line.classList.toggle('interim', !final);
-    if (final) this.lines.delete(key);
+    // Final lines stay in the map: the server may amend a finalized caption
+    // (late punctuation); eviction and fade-out prune the map via _drop.
     this._scheduleFade(line);
     this.el.scrollTop = this.el.scrollHeight;
   }

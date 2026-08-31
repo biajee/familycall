@@ -50,7 +50,6 @@ export function createApp(cfg) {
       this.client = client;
       this.provider = sttFor(client);
       this.segs = new Map();
-      this.nextSeg = 0;
       this.idleTimer = null;
       this.tx = createTranscriber(cfg, {
         lang: client.lang,
@@ -64,11 +63,15 @@ export function createApp(cfg) {
     onText({ key, text, final }) {
       let seg = this.segs.get(key);
       if (seg === undefined) {
-        seg = this.nextSeg++;
+        // Segment ids live on the client so they never restart when the
+        // transcriber is recreated (language/provider change) — a reused id
+        // would overwrite an old bubble on the phones.
+        seg = this.client.nextSeg++;
         this.segs.set(key, seg);
         if (this.segs.size > 100) this.segs.delete(this.segs.keys().next().value);
       }
-      if (final) this.segs.delete(key);
+      // Keys are kept after a final: a provider may amend a finalized caption
+      // (e.g. xfyun's late punctuation) and it must map to the same segment.
       if (!this.client.room) return;
       broadcast(this.client.room, {
         type: 'caption', speaker: this.client.id, seg, text, final, lang: this.client.lang,
@@ -102,6 +105,7 @@ export function createApp(cfg) {
       polite: false,
       stt: null,
       sttChoice: '', // '' = server default provider
+      nextSeg: 0,
       alive: true,
       closeStt(reason) {
         if (!this.stt) return;

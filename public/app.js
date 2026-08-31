@@ -124,12 +124,12 @@ function setSttStatus(ok, message, provider) {
   state.sttOk = ok;
   const name = provider || state.stt?.name;
   const label = (name && PROVIDER_LABELS[name]) || name || '';
+  // The dot is the status indicator; the text is just the provider's name
+  // (plus the error message when something is wrong).
   ui.sttDot.className = 'dot ' + (ok === null ? '' : ok ? 'ok' : 'bad');
-  ui.capLabel.textContent = ok === null
-    ? (label ? `${label} · ${T.captionsIdle}` : T.captionsIdle)
-    : ok
-      ? `${label ? label + ' ' : ''}${T.captionsOn}`
-      : `${T.captionsOff}${message ? ' · ' + message : ''}`;
+  ui.capLabel.textContent = ok === false
+    ? `${label || T.captionsOff}${message ? ' · ' + message : ''}`
+    : (label || T.captionsIdle);
 }
 
 function applyFont() {
