@@ -46,6 +46,8 @@ China, etc.). Both phones only ever talk to **your own server**.
      ([console.xfyun.cn/services/new_rta](https://console.xfyun.cn/services/new_rta)), very strong for Mandarin;
      auto-detects 中/英 and 202 dialects. With the APISecret set the server uses that (newer) endpoint; without
      it, the classic rtasr.xfyun.cn service. Switch any time with `STT_PROVIDER=xfyun`.
+   * **Self-hosted FunASR** (`FUNASR_URL`) — free and private: Alibaba's open-source Paraformer streaming
+     models running on your own machine (see [Self-hosted FunASR](#self-hosted-funasr) below).
 
    Each phone can also override the provider mid-call from the ⚙️ settings (any provider with keys in `.env`
    is offered), so you can compare them live.
@@ -142,6 +144,36 @@ There is no ringing (yet). Agree on a time (or send a WeChat message "打开家�
 
 In-call buttons: 🔗 copy room link · 🎤 mute · 📷 camera off · 🔄 front/back camera · A− / A+ caption size · 📵 hang up.
 The dot above the captions is green when the caption service is connected.
+
+## Self-hosted FunASR
+
+[FunASR](https://github.com/modelscope/FunASR) runs a production-grade 2-pass streaming Mandarin recognizer on a
+CPU (4 cores / ~3 GB RAM is plenty). The call server only needs to reach its WebSocket port; the simplest way
+when the machine sits behind a home router is a reverse SSH tunnel to the VPS — no port forwarding needed.
+
+On the machine that will run it (Python 3.10+):
+
+```bash
+mkdir -p ~/funasr && cd ~/funasr && python3 -m venv venv
+./venv/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+./venv/bin/pip install "funasr>=1.2" modelscope websockets
+curl -fsSLO https://raw.githubusercontent.com/modelscope/FunASR/main/runtime/python/websocket/funasr_wss_server.py
+# plain ws on localhost (models download from ModelScope on first start, ~1.5 GB)
+./venv/bin/python funasr_wss_server.py --host 127.0.0.1 --port 10095 --device cpu --ngpu 0 --ncpu 4 --certfile "" --keyfile ""
+```
+
+Keep it (and the tunnel) alive with user-level systemd units — see `deploy/funasr/*.service`:
+
+```bash
+cp deploy/funasr/funasr-server.service deploy/funasr/funasr-tunnel.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now funasr-server funasr-tunnel
+loginctl enable-linger $USER      # keep user services running without a login session
+```
+
+The tunnel unit runs `ssh -N -R 127.0.0.1:10095:127.0.0.1:10095 <vps>`; on the VPS set `FUNASR_URL=ws://127.0.0.1:10095`
+in `.env` (and optionally `STT_HOTWORDS={"爸爸":20}` for names) and restart. The provider then appears in the
+⚙️ settings as **FunASR**. Mandarin quality is excellent; English inside Chinese speech is fine, but a pure
+English speaker is better served by OpenAI.
 
 ## Configuration (`.env`)
 

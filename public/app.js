@@ -39,7 +39,7 @@ const ui = {
   btnCloseSettings: $('#btnCloseSettings'),
 };
 
-const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞', mock: 'Mock' };
+const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞', funasr: 'FunASR', mock: 'Mock' };
 
 const state = {
   inCall: false,

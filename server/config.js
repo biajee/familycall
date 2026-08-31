@@ -37,7 +37,8 @@ export function loadConfig(env = process.env) {
   const sttProvider = env.STT_PROVIDER
     || (env.OPENAI_API_KEY ? 'openai'
       : env.DEEPGRAM_API_KEY ? 'deepgram'
-        : env.XFYUN_APP_ID && env.XFYUN_API_KEY ? 'xfyun' : 'mock');
+        : env.XFYUN_APP_ID && env.XFYUN_API_KEY ? 'xfyun'
+          : env.FUNASR_URL ? 'funasr' : 'mock');
   return {
     root: ROOT,
     host: env.HOST || '127.0.0.1',
@@ -46,6 +47,7 @@ export function loadConfig(env = process.env) {
     roomKey: env.ROOM_KEY || '',
     sttProvider,
     sttPrompt: env.STT_PROMPT || '',
+    sttHotwords: env.STT_HOTWORDS || '', // FunASR hot words, e.g. {"爸爸":20}
     sttIdleCloseMs: Number(env.STT_IDLE_CLOSE_MS || 45_000),
     openai: {
       apiKey: env.OPENAI_API_KEY || '',
@@ -66,6 +68,9 @@ export function loadConfig(env = process.env) {
       service: env.XFYUN_SERVICE || 'auto', // auto | rtasr_llm | rtasr
       url: env.XFYUN_RTASR_URL || 'wss://rtasr.xfyun.cn/v1/ws',
       llmUrl: env.XFYUN_LLM_URL || 'wss://office-api-ast-dx.iflyaisol.com/ast/communicate/v1',
+    },
+    funasr: {
+      url: env.FUNASR_URL || '', // e.g. ws://127.0.0.1:10095 (self-hosted, see README)
     },
     stunUrls: list(env.STUN_URLS),
     turnUrls: list(env.TURN_URLS),

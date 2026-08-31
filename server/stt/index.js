@@ -2,8 +2,9 @@ import { MockTranscriber } from './mock.js';
 import { OpenAITranscriber } from './openai.js';
 import { DeepgramTranscriber } from './deepgram.js';
 import { XfyunTranscriber } from './xfyun.js';
+import { FunasrTranscriber } from './funasr.js';
 
-const PROVIDERS = { mock: MockTranscriber, openai: OpenAITranscriber, deepgram: DeepgramTranscriber, xfyun: XfyunTranscriber };
+const PROVIDERS = { mock: MockTranscriber, openai: OpenAITranscriber, deepgram: DeepgramTranscriber, xfyun: XfyunTranscriber, funasr: FunasrTranscriber };
 
 export function providerClass(name) {
   const cls = PROVIDERS[name];
@@ -22,6 +23,7 @@ export function availableProviders(cfg) {
   if (cfg.openai.apiKey) list.push('openai');
   if (cfg.deepgram.apiKey) list.push('deepgram');
   if (cfg.xfyun.appId && cfg.xfyun.apiKey) list.push('xfyun');
+  if (cfg.funasr.url) list.push('funasr');
   if (list.length === 0 || cfg.sttProvider === 'mock') list.push('mock');
   return list;
 }

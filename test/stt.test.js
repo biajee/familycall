@@ -5,6 +5,7 @@ import { MockTranscriber } from '../server/stt/mock.js';
 import { OpenAITranscriber, openaiLanguages } from '../server/stt/openai.js';
 import { DeepgramTranscriber, deepgramLanguage } from '../server/stt/deepgram.js';
 import { XfyunTranscriber, xfyunSigna, xfyunUrl, xfyunLlmUrl, xfyunUtc, xfyunService } from '../server/stt/xfyun.js';
+import { FunasrTranscriber } from '../server/stt/funasr.js';
 import { providerInfo, availableProviders } from '../server/stt/index.js';
 
 test('mock transcriber emits interim then final captions from audio volume', () => {
@@ -224,6 +225,34 @@ test('xfyun results map to per-utterance interim/final captions', () => {
   llm.close();
 });
 
+test('funasr 2pass: online pieces accumulate, offline result finalizes the segment', () => {
+  const events = [];
+  const sent = [];
+  const cfg = { sttHotwords: '{"爸爸":20}', funasr: { url: 'ws://127.0.0.1:10095' } };
+  const tx = new FunasrTranscriber({ lang: 'zh-CN', cfg, onText: (e) => events.push(e), onStatus() {} });
+  tx.ws = { send: (m) => sent.push(m), readyState: 1 };
+  tx._onOpen();
+  const hello = JSON.parse(sent[0]);
+  assert.equal(hello.mode, '2pass');
+  assert.deepEqual(hello.chunk_size, [5, 10, 5]);
+  assert.equal(hello.audio_fs, 16000);
+  assert.equal(hello.hotwords, '{"爸爸":20}');
+  assert.equal(hello.is_speaking, true);
+
+  tx._onMessage({ mode: '2pass-online', text: '你好', is_final: false });
+  tx._onMessage({ mode: '2pass-online', text: '爸爸', is_final: false });
+  tx._onMessage({ mode: '2pass-offline', text: '你好，爸爸。', is_final: false });
+  tx._onMessage({ mode: '2pass-online', text: '吃了吗', is_final: false });
+  assert.deepEqual(events, [
+    { key: 'u0', text: '你好', final: false },
+    { key: 'u0', text: '你好爸爸', final: false },
+    { key: 'u0', text: '你好，爸爸。', final: true },
+    { key: 'u1', text: '吃了吗', final: false },
+  ]);
+  tx._beforeClose();
+  assert.deepEqual(JSON.parse(sent.at(-1)), { is_speaking: false });
+});
+
 test('providerInfo reports audio rate and auto-language support', () => {
   assert.deepEqual(providerInfo({ sttProvider: 'openai' }), { name: 'openai', audioRate: 24000, autoLang: true });
   assert.deepEqual(providerInfo({ sttProvider: 'deepgram' }), { name: 'deepgram', audioRate: 16000, autoLang: false });
@@ -232,7 +261,9 @@ test('providerInfo reports audio rate and auto-language support', () => {
   assert.deepEqual(providerInfo({ sttProvider: 'mock' }, 'openai'), { name: 'openai', audioRate: 24000, autoLang: true });
   assert.throws(() => providerInfo({ sttProvider: 'nope' }), /Unknown STT_PROVIDER/);
 
-  const creds = (o) => ({ sttProvider: 'openai', openai: { apiKey: '' }, deepgram: { apiKey: '' }, xfyun: { appId: '', apiKey: '' }, ...o });
+  const creds = (o) => ({ sttProvider: 'openai', openai: { apiKey: '' }, deepgram: { apiKey: '' }, xfyun: { appId: '', apiKey: '' }, funasr: { url: '' }, ...o });
   assert.deepEqual(availableProviders(creds({ openai: { apiKey: 'k' }, xfyun: { appId: 'a', apiKey: 'k' } })), ['openai', 'xfyun']);
   assert.deepEqual(availableProviders(creds({ sttProvider: 'mock' })), ['mock']);
+  assert.deepEqual(availableProviders(creds({ funasr: { url: 'ws://127.0.0.1:10095' } })), ['funasr']);
+  assert.deepEqual(providerInfo({ sttProvider: 'funasr' }), { name: 'funasr', audioRate: 16000, autoLang: true });
 });
