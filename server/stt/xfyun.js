@@ -17,10 +17,48 @@ export function xfyunUrl(cfg, lang, now = Date.now()) {
   return `${cfg.url}?${p.toString()}`;
 }
 
+/** "2025-09-04T15:38:07+0000" — the utc format the 大模型版 handshake expects. */
+export function xfyunUtc(now = Date.now()) {
+  const d = new Date(now);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}+0000`;
+}
+
+/**
+ * 实时语音转写大模型 (new_rta) handshake: params sorted alphabetically, each
+ * key/value URL-encoded, joined k=v&, HmacSHA1 with the APISecret, base64.
+ * Docs: https://www.xfyun.cn/doc/spark/asr_llm/rtasr_llm.html
+ */
+export function xfyunLlmUrl(cfg, lang, now = Date.now(), uuid = crypto.randomUUID()) {
+  const params = {
+    accessKeyId: cfg.apiKey,
+    appId: cfg.appId,
+    audio_encode: 'pcm_s16le',
+    lang: 'autodialect', // 中英 + dialects, auto-detected — right for a zh/en family call
+    samplerate: '16000',
+    utc: xfyunUtc(now),
+    uuid,
+  };
+  const base = Object.keys(params)
+    .sort()
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+    .join('&');
+  const signature = crypto.createHmac('sha1', cfg.apiSecret).update(base).digest('base64');
+  return `${cfg.llmUrl}?${base}&signature=${encodeURIComponent(signature)}`;
+}
+
+/** Which xfyun endpoint to speak: the 大模型版 when an APISecret exists, else classic. */
+export function xfyunService(cfg) {
+  if (cfg.service && cfg.service !== 'auto') return cfg.service;
+  return cfg.apiSecret ? 'rtasr_llm' : 'rtasr';
+}
+
 const FRAME_BYTES = 1280; // RTASR wants small binary frames (≈40 ms of 16 kHz int16)
 
 /**
- * iFlytek (xfyun.cn) 实时语音转写 RTASR: continuous streaming transcription.
+ * iFlytek (xfyun.cn) 实时语音转写: continuous streaming transcription.
+ * With an APISecret set it speaks the 大模型版 (new_rta, what new accounts get);
+ * otherwise the classic RTASR at rtasr.xfyun.cn.
  * Docs: https://www.xfyun.cn/doc/asr/rtasr/API.html
  */
 export class XfyunTranscriber extends WsTranscriber {
@@ -31,11 +69,15 @@ export class XfyunTranscriber extends WsTranscriber {
     super(opts);
     this.cfg = opts.cfg.xfyun;
     this.utt = 0; // RTASR interims carry the whole current sentence; we key them per utterance
+    this.sessionId = null;
   }
 
   _open() {
     if (!this.cfg.appId || !this.cfg.apiKey) throw new Error('XFYUN_APP_ID / XFYUN_API_KEY is not set');
-    return new WebSocket(xfyunUrl(this.cfg, this.lang));
+    const url = xfyunService(this.cfg) === 'rtasr_llm'
+      ? xfyunLlmUrl(this.cfg, this.lang)
+      : xfyunUrl(this.cfg, this.lang);
+    return new WebSocket(url);
   }
 
   _onOpen() {
@@ -49,6 +91,7 @@ export class XfyunTranscriber extends WsTranscriber {
   _onMessage(msg) {
     switch (msg.action) {
       case 'started':
+        this.sessionId = msg.sessionId || msg.sid || null;
         this.opts.onStatus?.(true, 'ok');
         break;
       case 'error':
@@ -77,6 +120,7 @@ export class XfyunTranscriber extends WsTranscriber {
   }
 
   _beforeClose() {
-    try { this.ws.send('{"end": true}'); } catch { /* ignore */ }
+    const end = this.sessionId ? { end: true, sessionId: this.sessionId } : { end: true };
+    try { this.ws.send(JSON.stringify(end)); } catch { /* ignore */ }
   }
 }

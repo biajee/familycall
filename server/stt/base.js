@@ -79,6 +79,13 @@ export class WsTranscriber {
     ws.on('close', (code, reason) => {
       if (this.ws === ws) this.ws = null;
       if (this.closed) return;
+      if (this.cycling) {
+        // Expected end-of-session (e.g. per-utterance providers); reconnect quietly.
+        this.cycling = false;
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => this._connect(), 100);
+        return;
+      }
       this.log?.warn(`stt socket closed (${code} ${reason?.toString() || ''}); reconnecting`);
       this.opts.onStatus?.(false, `disconnected (${code})`);
       this._scheduleReconnect();

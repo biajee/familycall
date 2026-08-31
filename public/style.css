@@ -102,6 +102,12 @@ button { font: inherit; cursor: pointer; }
 }
 #controls button.active { background: var(--warn); color: #000; }
 #controls button.danger { background: var(--danger); }
+#settingsPanel {
+  position: absolute; left: 6%; right: 6%; bottom: 92px; z-index: 3;
+  background: #0b1220f2; border: 1px solid #2c3a5a; border-radius: 14px; padding: 14px 16px;
+}
+#settingsPanel label { display: block; margin: 10px 0; font-size: 17px; }
+#settingsPanel .primary { margin-top: 12px; padding: 12px; font-size: 19px; }
 #toast {
   position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); max-width: 90%;
   background: #000000dd; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 18px; z-index: 10;

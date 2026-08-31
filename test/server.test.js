@@ -68,6 +68,7 @@ test('join / signal / captions / leave flow', async () => {
   assert.deepEqual(ja.peers, []);
   assert.equal(ja.stt.name, 'mock');
   assert.equal(ja.stt.audioRate, 16000);
+  assert.deepEqual(ja.sttProviders, ['mock']);
   assert.equal(ja.iceServers.length, 1);
   assert.match(ja.iceServers[0].username, /:[0-9a-f]{8}$/);
 
@@ -109,6 +110,14 @@ test('join / signal / captions / leave flow', async () => {
   let cap;
   do cap = await b.until('caption'); while (!cap.final);
   assert.match(cap.text, /测试字幕/);
+
+  // choosing a provider from the settings restarts the transcriber and reports the new rate
+  a.send({ type: 'update', stt: 'mock' });
+  const info = await a.until('stt-info');
+  assert.deepEqual(info.stt, { name: 'mock', audioRate: 16000, autoLang: true });
+  a.send({ type: 'update', stt: 'not-a-provider' }); // unknown -> falls back to the default
+  const info2 = await a.until('stt-info');
+  assert.equal(info2.stt.name, 'mock');
 
   // third participant is rejected
   const c = client();

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Rooms, publicPeer, sanitizeName, sanitizeRoom, sanitizeLang } from './rooms.js';
 import { buildIceServers } from './turn.js';
-import { createTranscriber, providerInfo } from './stt/index.js';
+import { createTranscriber, providerInfo, availableProviders } from './stt/index.js';
 import { serveStatic } from './static.js';
 import { createLogger } from './log.js';
 
@@ -20,6 +20,8 @@ export function createApp(cfg) {
   const log = createLogger(cfg.logLevel);
   const rooms = new Rooms();
   const stt = providerInfo(cfg);
+  const sttProviders = availableProviders(cfg);
+  const sttFor = (client) => client.sttChoice || cfg.sttProvider;
   const clients = new Set();
   const publicDir = join(cfg.root, 'public');
 
@@ -46,6 +48,7 @@ export function createApp(cfg) {
   class CaptionStream {
     constructor(client) {
       this.client = client;
+      this.provider = sttFor(client);
       this.segs = new Map();
       this.nextSeg = 0;
       this.idleTimer = null;
@@ -53,8 +56,8 @@ export function createApp(cfg) {
         lang: client.lang,
         log: log.child(`[stt ${client.id}]`),
         onText: (evt) => this.onText(evt),
-        onStatus: (ok, message) => send(client, { type: 'stt-status', ok, message, provider: stt.name }),
-      });
+        onStatus: (ok, message) => send(client, { type: 'stt-status', ok, message, provider: this.provider }),
+      }, this.provider);
       this.touch();
     }
 
@@ -98,6 +101,7 @@ export function createApp(cfg) {
       lang: 'zh-CN',
       polite: false,
       stt: null,
+      sttChoice: '', // '' = server default provider
       alive: true,
       closeStt(reason) {
         if (!this.stt) return;
@@ -126,6 +130,7 @@ export function createApp(cfg) {
     if (client.room) doLeave(client);
     client.name = sanitizeName(msg.name);
     client.lang = sanitizeLang(msg.lang);
+    if (typeof msg.stt === 'string' && sttProviders.includes(msg.stt)) client.sttChoice = msg.stt;
     const r = rooms.join(roomId, client);
     if (!r.ok) return sendError(client, r.code, r.code === 'room_full' ? 'Room is full' : r.code);
     client.room = roomId;
@@ -138,7 +143,8 @@ export function createApp(cfg) {
       polite: client.polite,
       peers: r.others.map(publicPeer),
       iceServers: buildIceServers(cfg, client.id),
-      stt,
+      stt: providerInfo(cfg, sttFor(client)),
+      sttProviders,
     });
     for (const other of r.others) send(other, { type: 'peer-joined', peer: publicPeer(client), polite: false });
     log.info(`[${client.id}] "${client.name}" (${client.lang}) joined room "${roomId}" from ${client.ip}; peers=${r.others.length + 1}`);
@@ -160,6 +166,15 @@ export function createApp(cfg) {
         client.closeStt('language changed');
       }
     }
+    if (typeof msg.stt === 'string') {
+      const choice = sttProviders.includes(msg.stt) ? msg.stt : '';
+      if (choice !== client.sttChoice) {
+        client.sttChoice = choice;
+        client.closeStt('provider changed');
+        // The new provider may use a different audio rate: tell the phone to re-capture.
+        send(client, { type: 'stt-info', stt: providerInfo(cfg, sttFor(client)) });
+      }
+    }
     if (client.room) broadcast(client.room, { type: 'peer-updated', peer: publicPeer(client) }, client);
   }
 
@@ -170,7 +185,7 @@ export function createApp(cfg) {
         client.stt = new CaptionStream(client);
       } catch (err) {
         log.error(`[${client.id}] cannot start transcriber:`, err.message);
-        send(client, { type: 'stt-status', ok: false, message: err.message, provider: stt.name });
+        send(client, { type: 'stt-status', ok: false, message: err.message, provider: sttFor(client) });
         return;
       }
     }

@@ -62,7 +62,10 @@ export function loadConfig(env = process.env) {
     xfyun: {
       appId: env.XFYUN_APP_ID || '',
       apiKey: env.XFYUN_API_KEY || '',
+      apiSecret: env.XFYUN_API_SECRET || '', // set -> 实时语音转写大模型 (new_rta) endpoint
+      service: env.XFYUN_SERVICE || 'auto', // auto | rtasr_llm | rtasr
       url: env.XFYUN_RTASR_URL || 'wss://rtasr.xfyun.cn/v1/ws',
+      llmUrl: env.XFYUN_LLM_URL || 'wss://office-api-ast-dx.iflyaisol.com/ast/communicate/v1',
     },
     stunUrls: list(env.STUN_URLS),
     turnUrls: list(env.TURN_URLS),

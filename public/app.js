@@ -32,7 +32,14 @@ const ui = {
   btnHangup: $('#btnHangup'),
   btnInvite: $('#btnInvite'),
   btnInviteCall: $('#btnInviteCall'),
+  btnSettings: $('#btnSettings'),
+  settingsPanel: $('#settingsPanel'),
+  selProvider: $('#selProvider'),
+  selLang: $('#selLang'),
+  btnCloseSettings: $('#btnCloseSettings'),
 };
+
+const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞 iFlytek', mock: 'Mock' };
 
 const state = {
   inCall: false,
@@ -52,6 +59,7 @@ const state = {
   wakeLock: null,
   connectionState: 'new',
   sttOk: null,
+  sttProviders: [],
 };
 
 const captions = new Captions(ui.captions);
@@ -71,7 +79,7 @@ function loadProfile() {
   // The URL defines identity (so a home-screen shortcut is enough to configure a phone);
   // localStorage keeps in-app preferences such as caption size.
   const q = new URLSearchParams(location.search);
-  for (const k of ['name', 'room', 'lang', 'ui', 'key']) if (q.has(k)) p[k] = q.get(k).trim();
+  for (const k of ['name', 'room', 'lang', 'ui', 'key', 'stt']) if (q.has(k)) p[k] = q.get(k).trim();
   if (q.has('simple')) p.simple = q.get('simple') === '1';
   if (q.has('font')) p.font = Number(q.get('font'));
   if (!['zh', 'en'].includes(p.ui)) p.ui = detectUiLang();
@@ -204,7 +212,10 @@ async function joinCall() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const sig = new Signaling(`${proto}://${location.host}/ws`);
   sig.onopen = () => {
-    sig.send({ type: 'join', room: profile.room, name: profile.name, lang: profile.lang, key: profile.key || '' });
+    sig.send({
+      type: 'join', room: profile.room, name: profile.name, lang: profile.lang,
+      key: profile.key || '', stt: profile.stt || '',
+    });
   };
   sig.onclose = () => {
     if (!state.inCall) return;
@@ -224,6 +235,7 @@ function handleMessage(msg) {
       state.polite = msg.polite;
       state.iceServers = msg.iceServers || [];
       state.stt = msg.stt;
+      state.sttProviders = msg.sttProviders || [];
       captions.setSelf(msg.id);
       startCapture(msg.stt.audioRate);
       if (msg.stt.autoLang === false && profile.lang === 'auto') toast(T.noAutoLang, 6000);
@@ -247,6 +259,12 @@ function handleMessage(msg) {
       break;
     case 'stt-status':
       setSttStatus(!!msg.ok, msg.ok ? '' : msg.message);
+      break;
+    case 'stt-info':
+      // Provider switched server-side; the audio rate may differ, so re-capture.
+      state.stt = msg.stt;
+      setSttStatus(null);
+      startCapture(msg.stt.audioRate);
       break;
     case 'error':
       console.warn('server error', msg);
@@ -344,6 +362,7 @@ function leaveCall() {
   state.camOff = false;
   ui.btnMute.classList.remove('active');
   ui.btnCam.classList.remove('active');
+  ui.settingsPanel.classList.add('hidden');
   setStatus('');
   idleScreen();
 }
@@ -463,6 +482,44 @@ ui.btnFontDown.addEventListener('click', () => changeFont(-4));
 
 ui.btnHangup.addEventListener('click', () => {
   if (window.confirm(T.hangupConfirm)) leaveCall();
+});
+
+/* ---------- in-call settings ---------- */
+
+function openSettings() {
+  ui.selProvider.textContent = '';
+  const def = document.createElement('option');
+  def.value = '';
+  def.textContent = T.sttDefault;
+  ui.selProvider.append(def);
+  for (const p of state.sttProviders) {
+    const o = document.createElement('option');
+    o.value = p;
+    o.textContent = PROVIDER_LABELS[p] || p;
+    ui.selProvider.append(o);
+  }
+  ui.selProvider.value = state.sttProviders.includes(profile.stt) ? profile.stt : '';
+  ui.selLang.value = profile.lang;
+  ui.settingsPanel.classList.remove('hidden');
+}
+
+ui.btnSettings.addEventListener('click', () => {
+  if (ui.settingsPanel.classList.contains('hidden')) openSettings();
+  else ui.settingsPanel.classList.add('hidden');
+});
+ui.btnCloseSettings.addEventListener('click', () => ui.settingsPanel.classList.add('hidden'));
+
+ui.selProvider.addEventListener('change', () => {
+  profile.stt = ui.selProvider.value;
+  saveProfile();
+  state.signaling?.send({ type: 'update', stt: profile.stt });
+});
+
+ui.selLang.addEventListener('change', () => {
+  profile.lang = ui.selLang.value;
+  saveProfile();
+  state.signaling?.send({ type: 'update', lang: profile.lang });
+  if (profile.lang === 'auto' && state.stt?.autoLang === false) toast(T.noAutoLang, 6000);
 });
 
 // Tapping the video area retries playback (browsers may block un-gestured audio playback).

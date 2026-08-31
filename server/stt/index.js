@@ -11,13 +11,23 @@ export function providerClass(name) {
   return cls;
 }
 
-export function providerInfo(cfg) {
-  const cls = providerClass(cfg.sttProvider);
-  return { name: cfg.sttProvider, audioRate: cls.audioRate, autoLang: cls.autoLang };
+export function providerInfo(cfg, name = cfg.sttProvider) {
+  const cls = providerClass(name);
+  return { name, audioRate: cls.audioRate, autoLang: cls.autoLang };
+}
+
+/** Providers that have credentials configured (selectable per phone from the in-call settings). */
+export function availableProviders(cfg) {
+  const list = [];
+  if (cfg.openai.apiKey) list.push('openai');
+  if (cfg.deepgram.apiKey) list.push('deepgram');
+  if (cfg.xfyun.appId && cfg.xfyun.apiKey) list.push('xfyun');
+  if (list.length === 0 || cfg.sttProvider === 'mock') list.push('mock');
+  return list;
 }
 
 /** Create and start a transcriber. opts: {lang, onText, onStatus, log} */
-export function createTranscriber(cfg, opts) {
-  const Cls = providerClass(cfg.sttProvider);
+export function createTranscriber(cfg, opts, name = cfg.sttProvider) {
+  const Cls = providerClass(name);
   return new Cls({ ...opts, cfg }).start();
 }

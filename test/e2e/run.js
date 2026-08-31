@@ -159,6 +159,21 @@ try {
   if (!muted) fail('mute did not disable the audio track');
   await a.click('#btnMute');
 
+  // In-call settings: provider picker lists the server's providers; switching re-captures.
+  await a.click('#btnSettings');
+  await a.waitForSelector('#settingsPanel', { visible: true });
+  const provOptions = await a.evaluate(() => [...document.querySelectorAll('#selProvider option')].map((o) => o.value));
+  if (!provOptions.includes('') || !provOptions.includes('mock')) fail(`provider options wrong: ${provOptions}`);
+  await a.select('#selProvider', 'mock');
+  await a.waitForFunction(() => window.__familycall.state.stt?.name === 'mock', { timeout: 5000 });
+  await a.select('#selLang', 'zh-CN');
+  await b.waitForFunction(() => window.__familycall.state.peer?.lang === 'zh-CN', { timeout: 5000 });
+  console.log('A: settings panel switched provider and language');
+  await a.screenshot({ path: `${artifacts}/phone-a-settings.png` });
+  await a.click('#btnCloseSettings');
+  await a.waitForFunction(() => [...document.querySelectorAll('#captions .cap-self .txt')].some((e) => /测试字幕/.test(e.textContent)), { timeout: 20000 });
+  console.log('A: captions continue in Chinese after the settings change');
+
   await a.screenshot({ path: `${artifacts}/phone-a.png` });
   await b.screenshot({ path: `${artifacts}/phone-b.png` });
 

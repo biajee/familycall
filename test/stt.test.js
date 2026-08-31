@@ -4,8 +4,8 @@ import crypto from 'node:crypto';
 import { MockTranscriber } from '../server/stt/mock.js';
 import { OpenAITranscriber, openaiLanguages } from '../server/stt/openai.js';
 import { DeepgramTranscriber, deepgramLanguage } from '../server/stt/deepgram.js';
-import { XfyunTranscriber, xfyunSigna, xfyunUrl } from '../server/stt/xfyun.js';
-import { providerInfo } from '../server/stt/index.js';
+import { XfyunTranscriber, xfyunSigna, xfyunUrl, xfyunLlmUrl, xfyunUtc, xfyunService } from '../server/stt/xfyun.js';
+import { providerInfo, availableProviders } from '../server/stt/index.js';
 
 test('mock transcriber emits interim then final captions from audio volume', () => {
   const events = [];
@@ -138,6 +138,33 @@ test('xfyun RTASR url carries the documented signature', () => {
   assert.equal(en.searchParams.get('lang'), 'en');
 });
 
+test('xfyun 大模型版 url sorts params and signs with the APISecret', () => {
+  const cfg = {
+    appId: 'app1', apiKey: 'ak1', apiSecret: 'sk1',
+    llmUrl: 'wss://office-api-ast-dx.iflyaisol.com/ast/communicate/v1',
+  };
+  assert.equal(xfyunUtc(Date.UTC(2026, 8, 4, 15, 38, 7)), '2026-09-04T15:38:07+0000');
+
+  const url = new URL(xfyunLlmUrl(cfg, 'zh-CN', Date.UTC(2026, 8, 4, 15, 38, 7), 'uuid-1'));
+  const q = url.searchParams;
+  assert.equal(q.get('accessKeyId'), 'ak1');
+  assert.equal(q.get('appId'), 'app1');
+  assert.equal(q.get('audio_encode'), 'pcm_s16le');
+  assert.equal(q.get('lang'), 'autodialect');
+  assert.equal(q.get('samplerate'), '16000');
+  assert.equal(q.get('utc'), '2026-09-04T15:38:07+0000');
+  // signature = Base64(HmacSHA1(sorted&encoded params, accessKeySecret))
+  const base = [...url.search.slice(1).split('&')].filter((kv) => !kv.startsWith('signature=')).join('&');
+  const keys = base.split('&').map((kv) => kv.split('=')[0]);
+  assert.deepEqual(keys, [...keys].sort(), 'params must be alphabetically sorted');
+  const expected = crypto.createHmac('sha1', 'sk1').update(base).digest('base64');
+  assert.equal(q.get('signature'), expected);
+
+  assert.equal(xfyunService({ service: 'auto', apiSecret: 'x' }), 'rtasr_llm');
+  assert.equal(xfyunService({ service: 'auto', apiSecret: '' }), 'rtasr');
+  assert.equal(xfyunService({ service: 'rtasr', apiSecret: 'x' }), 'rtasr');
+});
+
 test('xfyun results map to per-utterance interim/final captions', () => {
   const events = [];
   const statuses = [];
@@ -174,5 +201,10 @@ test('providerInfo reports audio rate and auto-language support', () => {
   assert.deepEqual(providerInfo({ sttProvider: 'deepgram' }), { name: 'deepgram', audioRate: 16000, autoLang: false });
   assert.deepEqual(providerInfo({ sttProvider: 'xfyun' }), { name: 'xfyun', audioRate: 16000, autoLang: true });
   assert.deepEqual(providerInfo({ sttProvider: 'mock' }), { name: 'mock', audioRate: 16000, autoLang: true });
+  assert.deepEqual(providerInfo({ sttProvider: 'mock' }, 'openai'), { name: 'openai', audioRate: 24000, autoLang: true });
   assert.throws(() => providerInfo({ sttProvider: 'nope' }), /Unknown STT_PROVIDER/);
+
+  const creds = (o) => ({ sttProvider: 'openai', openai: { apiKey: '' }, deepgram: { apiKey: '' }, xfyun: { appId: '', apiKey: '' }, ...o });
+  assert.deepEqual(availableProviders(creds({ openai: { apiKey: 'k' }, xfyun: { appId: 'a', apiKey: 'k' } })), ['openai', 'xfyun']);
+  assert.deepEqual(availableProviders(creds({ sttProvider: 'mock' })), ['mock']);
 });

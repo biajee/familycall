@@ -41,6 +41,9 @@ export const STRINGS = {
     inviteNeedRoom: '请先填写房间号',
     inviteManual: '请手动复制这个链接：',
     capCopied: '文字已复制',
+    sttService: '字幕识别服务',
+    sttDefault: '默认',
+    done: '完成',
   },
   en: {
     appTitle: 'Family Call',
@@ -84,6 +87,9 @@ export const STRINGS = {
     inviteNeedRoom: 'Enter a room name first',
     inviteManual: 'Copy this link manually:',
     capCopied: 'Text copied',
+    sttService: 'Caption service',
+    sttDefault: 'Default',
+    done: 'Done',
   },
 };
 
