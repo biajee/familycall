@@ -3,19 +3,12 @@ export class Captions {
   constructor(el, maxLines = 12) {
     this.el = el;
     this.max = maxLines;
-    this.names = new Map();
     this.self = null;
     this.lines = new Map();
   }
 
-  setSelf(id, name) {
+  setSelf(id) {
     this.self = id;
-    this.setName(id, name);
-  }
-
-  setName(id, name) {
-    this.names.set(id, name);
-    for (const who of this.el.querySelectorAll(`[data-speaker="${CSS.escape(id)}"] .who`)) who.textContent = name;
   }
 
   clear() {
@@ -27,15 +20,16 @@ export class Captions {
     const key = `${speaker}:${seg}`;
     let line = this.lines.get(key);
     if (!line) {
+      const self = speaker === this.self;
       line = document.createElement('div');
-      line.className = 'cap ' + (speaker === this.self ? 'cap-self' : 'cap-peer');
+      line.className = 'cap ' + (self ? 'cap-self' : 'cap-peer');
       line.dataset.speaker = speaker;
-      const who = document.createElement('span');
-      who.className = 'who';
-      who.textContent = this.names.get(speaker) || '…';
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      mark.textContent = self ? '>' : '<'; // > outgoing (me), < incoming (them)
       const txt = document.createElement('span');
       txt.className = 'txt';
-      line.append(who, txt);
+      line.append(mark, txt);
       this.el.appendChild(line);
       this.lines.set(key, line);
       while (this.el.children.length > this.max) {

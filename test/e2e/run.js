@@ -66,7 +66,7 @@ async function openPhone(label, name, lang, ui) {
 }
 
 const capsOf = (page) => page.evaluate(() => [...document.querySelectorAll('#captions .cap')].map((c) =>
-  `${c.classList.contains('cap-self') ? 'self' : 'peer'}${c.classList.contains('interim') ? '(interim)' : ''} ${c.querySelector('.who').textContent}: ${c.querySelector('.txt').textContent}`));
+  `${c.classList.contains('cap-self') ? 'self' : 'peer'}${c.classList.contains('interim') ? '(interim)' : ''} ${c.querySelector('.mark').textContent} ${c.querySelector('.txt').textContent}`));
 
 const waitConnected = (page, label) => page
   .waitForFunction(() => window.__familycall.state.connectionState === 'connected', { timeout: 20000 })
@@ -101,10 +101,10 @@ try {
   console.log('B captions:', await capsOf(b));
   console.log('A captions:', await capsOf(a));
 
-  const bPeerLabel = await b.evaluate(() => document.querySelector('#captions .cap-peer .who')?.textContent);
-  if (bPeerLabel !== 'Alice') fail(`B should label peer captions "Alice", got "${bPeerLabel}"`);
-  const aSelf = await a.evaluate(() => document.querySelector('#captions .cap-self .who')?.textContent);
-  if (aSelf !== 'Alice') fail(`A should label own captions "Alice", got "${aSelf}"`);
+  const bPeerMark = await b.evaluate(() => document.querySelector('#captions .cap-peer .mark')?.textContent);
+  if (bPeerMark !== '<') fail(`B should mark incoming captions "<", got "${bPeerMark}"`);
+  const aSelfMark = await a.evaluate(() => document.querySelector('#captions .cap-self .mark')?.textContent);
+  if (aSelfMark !== '>') fail(`A should mark own captions ">", got "${aSelfMark}"`);
 
   for (const [label, page] of [['A', a], ['B', b]]) {
     const ok = await page.evaluate(() => window.__familycall.state.sttOk);

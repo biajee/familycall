@@ -76,7 +76,7 @@ button { font: inherit; cursor: pointer; }
   display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch;
 }
 .cap { background: #000000a6; border-radius: 12px; padding: 6px 12px; width: fit-content; max-width: 100%; align-self: flex-start; }
-.cap .who { display: block; font-size: 0.55em; color: #b8c2d8; margin-bottom: 2px; }
+.cap .mark { color: #b8c2d8; font-weight: 700; margin-right: 0.35em; }
 .cap .txt { word-break: break-word; }
 .cap-self { align-self: flex-end; opacity: 0.75; }
 .cap.interim .txt { color: #c7d0e3; }

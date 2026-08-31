@@ -218,7 +218,7 @@ function handleMessage(msg) {
       state.polite = msg.polite;
       state.iceServers = msg.iceServers || [];
       state.stt = msg.stt;
-      captions.setSelf(msg.id, profile.name);
+      captions.setSelf(msg.id);
       startCapture(msg.stt.audioRate);
       if (msg.stt.autoLang === false && profile.lang === 'auto') toast(T.noAutoLang, 6000);
       if (msg.peers && msg.peers[0]) onPeerJoined(msg.peers[0], msg.polite);
@@ -228,10 +228,7 @@ function handleMessage(msg) {
       onPeerJoined(msg.peer, msg.polite);
       break;
     case 'peer-updated':
-      if (state.peer && msg.peer.id === state.peer.id) {
-        state.peer = msg.peer;
-        captions.setName(msg.peer.id, msg.peer.name);
-      }
+      if (state.peer && msg.peer.id === state.peer.id) state.peer = msg.peer;
       break;
     case 'peer-left':
       if (state.peer && msg.id === state.peer.id) onPeerLeft();
@@ -258,7 +255,6 @@ function handleMessage(msg) {
 function onPeerJoined(peer, polite) {
   state.peer = peer;
   state.polite = polite;
-  captions.setName(peer.id, peer.name);
   teardownPeer();
   setStatus(T.connecting);
   state.call = new Call({
