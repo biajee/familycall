@@ -123,9 +123,9 @@ function setStatus(text) {
 function setSttStatus(ok, message, provider) {
   state.sttOk = ok;
   const name = provider || state.stt?.name;
-  const label = (name && PROVIDER_LABELS[name]) || name || '';
+  const label = name === 'off' ? T.sttOff : ((name && PROVIDER_LABELS[name]) || name || '');
   // The dot is the status indicator; the text is just the provider's name
-  // (plus the error message when something is wrong).
+  // (plus the error message when something is wrong). Tap it to open settings.
   ui.sttDot.className = 'dot ' + (ok === null ? '' : ok ? 'ok' : 'bad');
   ui.capLabel.textContent = ok === false
     ? `${label || T.captionsOff}${message ? ' · ' + message : ''}`
@@ -243,7 +243,7 @@ function handleMessage(msg) {
       state.stt = msg.stt;
       state.sttProviders = msg.sttProviders || [];
       captions.setSelf(msg.id);
-      startCapture(msg.stt.audioRate);
+      applySttInfo(msg.stt);
       if (msg.stt.autoLang === false && profile.lang === 'auto') toast(T.noAutoLang, 6000);
       if (msg.peers && msg.peers[0]) onPeerJoined(msg.peers[0], msg.polite);
       else setStatus(T.waitingPeer);
@@ -267,10 +267,8 @@ function handleMessage(msg) {
       setSttStatus(!!msg.ok, msg.ok ? '' : msg.message, msg.provider);
       break;
     case 'stt-info':
-      // Provider switched server-side; the audio rate may differ, so re-capture.
-      state.stt = msg.stt;
-      setSttStatus(null);
-      startCapture(msg.stt.audioRate);
+      // Provider switched server-side (or captions turned off): re-capture as needed.
+      applySttInfo(msg.stt);
       break;
     case 'error':
       console.warn('server error', msg);
@@ -324,6 +322,23 @@ function teardownPeer() {
   }
   state.connectionState = 'new';
   ui.remoteVideo.srcObject = null;
+}
+
+function applySttInfo(info) {
+  state.stt = info;
+  if (info.name === 'off') {
+    stopCapture(); // nothing is sent to any transcription service
+    setSttStatus(null, '', 'off');
+  } else {
+    setSttStatus(null);
+    startCapture(info.audioRate);
+  }
+}
+
+function stopCapture() {
+  if (!state.capture) return;
+  state.capture.stop();
+  state.capture = null;
 }
 
 async function startCapture(rate) {
@@ -504,7 +519,11 @@ function openSettings() {
     o.textContent = PROVIDER_LABELS[p] || p;
     ui.selProvider.append(o);
   }
-  ui.selProvider.value = state.sttProviders.includes(profile.stt) ? profile.stt : '';
+  const off = document.createElement('option');
+  off.value = 'off';
+  off.textContent = T.sttOff;
+  ui.selProvider.append(off);
+  ui.selProvider.value = profile.stt === 'off' || state.sttProviders.includes(profile.stt) ? profile.stt : '';
   ui.selLang.value = profile.lang;
   ui.settingsPanel.classList.remove('hidden');
 }
@@ -514,6 +533,7 @@ ui.btnSettings.addEventListener('click', () => {
   else ui.settingsPanel.classList.add('hidden');
 });
 ui.btnCloseSettings.addEventListener('click', () => ui.settingsPanel.classList.add('hidden'));
+$('#capBar').addEventListener('click', () => { if (state.inCall) openSettings(); });
 
 ui.selProvider.addEventListener('change', () => {
   profile.stt = ui.selProvider.value;

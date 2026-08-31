@@ -170,6 +170,18 @@ try {
   await b.waitForFunction(() => window.__familycall.state.peer?.lang === 'zh-CN', { timeout: 5000 });
   console.log('A: settings panel switched provider and language');
   await a.screenshot({ path: `${artifacts}/phone-a-settings.png` });
+  // Captions off: mic capture stops; choosing a provider again restarts it.
+  await a.select('#selProvider', 'off');
+  await a.waitForFunction(() => window.__familycall.state.stt?.name === 'off' && window.__familycall.state.capture === null, { timeout: 5000 });
+  await a.select('#selProvider', 'mock');
+  await a.waitForFunction(() => window.__familycall.state.stt?.name === 'mock' && window.__familycall.state.capture !== null, { timeout: 5000 });
+  console.log('A: captions turned off and back on');
+  await a.click('#btnCloseSettings');
+  await a.waitForSelector('#settingsPanel', { hidden: true });
+  // Tapping the provider label opens the settings too.
+  await a.click('#capBar');
+  await a.waitForSelector('#settingsPanel', { visible: true });
+  console.log('A: tapping the provider label opened settings');
   await a.click('#btnCloseSettings');
   await a.waitForFunction(() => [...document.querySelectorAll('#captions .cap-self .txt')].some((e) => /测试字幕/.test(e.textContent)), { timeout: 20000 });
   console.log('A: captions continue in Chinese after the settings change');

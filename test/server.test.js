@@ -119,6 +119,14 @@ test('join / signal / captions / leave flow', async () => {
   const info2 = await a.until('stt-info');
   assert.equal(info2.stt.name, 'mock');
 
+  // captions can be turned off per phone: audio is dropped until a provider is chosen again
+  a.send({ type: 'update', stt: 'off' });
+  assert.deepEqual((await a.until('stt-info')).stt, { name: 'off', audioRate: 0, autoLang: true });
+  for (let i = 0; i < 20; i++) a.ws.send(chunk);
+  await assert.rejects(b.until('caption', 700), /timeout/, 'no captions while off');
+  a.send({ type: 'update', stt: 'mock' });
+  assert.equal((await a.until('stt-info')).stt.name, 'mock');
+
   // third participant is rejected
   const c = client();
   await c.open;

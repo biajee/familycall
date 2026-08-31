@@ -43,6 +43,7 @@ export const STRINGS = {
     capCopied: '文字已复制',
     sttService: '字幕识别服务',
     sttDefault: '默认',
+    sttOff: '关闭字幕',
     done: '完成',
   },
   en: {
@@ -89,6 +90,7 @@ export const STRINGS = {
     capCopied: 'Text copied',
     sttService: 'Caption service',
     sttDefault: 'Default',
+    sttOff: 'Captions off',
     done: 'Done',
   },
 };

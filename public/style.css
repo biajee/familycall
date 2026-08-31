@@ -63,7 +63,7 @@ button { font: inherit; cursor: pointer; }
   font-size: 20px; text-align: center;
 }
 #capBar {
-  position: relative; z-index: 1;
+  position: relative; z-index: 1; cursor: pointer;
   display: flex; align-items: center; gap: 8px; padding: 2px 14px 4px;
   font-size: 15px; color: #dbe3f0dd; text-shadow: 0 1px 2px #000;
 }

@@ -22,6 +22,9 @@ export function createApp(cfg) {
   const stt = providerInfo(cfg);
   const sttProviders = availableProviders(cfg);
   const sttFor = (client) => client.sttChoice || cfg.sttProvider;
+  const OFF_INFO = { name: 'off', audioRate: 0, autoLang: true };
+  const sttInfoFor = (client) => (client.sttChoice === 'off' ? OFF_INFO : providerInfo(cfg, sttFor(client)));
+  const validChoice = (v) => typeof v === 'string' && (v === 'off' || sttProviders.includes(v));
   const clients = new Set();
   const publicDir = join(cfg.root, 'public');
 
@@ -134,7 +137,7 @@ export function createApp(cfg) {
     if (client.room) doLeave(client);
     client.name = sanitizeName(msg.name);
     client.lang = sanitizeLang(msg.lang);
-    if (typeof msg.stt === 'string' && sttProviders.includes(msg.stt)) client.sttChoice = msg.stt;
+    if (validChoice(msg.stt)) client.sttChoice = msg.stt;
     const r = rooms.join(roomId, client);
     if (!r.ok) return sendError(client, r.code, r.code === 'room_full' ? 'Room is full' : r.code);
     client.room = roomId;
@@ -147,7 +150,7 @@ export function createApp(cfg) {
       polite: client.polite,
       peers: r.others.map(publicPeer),
       iceServers: buildIceServers(cfg, client.id),
-      stt: providerInfo(cfg, sttFor(client)),
+      stt: sttInfoFor(client),
       sttProviders,
     });
     for (const other of r.others) send(other, { type: 'peer-joined', peer: publicPeer(client), polite: false });
@@ -171,12 +174,12 @@ export function createApp(cfg) {
       }
     }
     if (typeof msg.stt === 'string') {
-      const choice = sttProviders.includes(msg.stt) ? msg.stt : '';
+      const choice = validChoice(msg.stt) ? msg.stt : '';
       if (choice !== client.sttChoice) {
         client.sttChoice = choice;
-        client.closeStt('provider changed');
-        // The new provider may use a different audio rate: tell the phone to re-capture.
-        send(client, { type: 'stt-info', stt: providerInfo(cfg, sttFor(client)) });
+        client.closeStt(choice === 'off' ? 'captions off' : 'provider changed');
+        // The new provider may use a different audio rate (or be "off"): tell the phone.
+        send(client, { type: 'stt-info', stt: sttInfoFor(client) });
       }
     }
     if (client.room) broadcast(client.room, { type: 'peer-updated', peer: publicPeer(client) }, client);
@@ -184,6 +187,7 @@ export function createApp(cfg) {
 
   function onAudio(client, buf) {
     if (!client.room || buf.length === 0 || buf.length > MAX_AUDIO_FRAME) return;
+    if (client.sttChoice === 'off') return; // captions turned off by this phone
     if (!client.stt) {
       try {
         client.stt = new CaptionStream(client);
