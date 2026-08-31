@@ -8,6 +8,12 @@ DOMAIN="${DOMAIN:?Set DOMAIN=call.example.com (DNS A record must already point a
 APP_DIR=/opt/stt-videocall
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PUBLIC_IP="$(curl -4fsS https://api.ipify.org || curl -4fsS https://ifconfig.me)"
+PRIVATE_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)"
+# Behind 1:1 NAT (AWS/GCP/Azure/...) coturn needs the public/private pair.
+EXTERNAL_IP="${PUBLIC_IP}"
+if [ -n "${PRIVATE_IP}" ] && [ "${PRIVATE_IP}" != "${PUBLIC_IP}" ]; then
+  EXTERNAL_IP="${PUBLIC_IP}/${PRIVATE_IP}"
+fi
 TURN_SECRET="$(openssl rand -hex 32)"
 
 echo "==> Installing packages"
@@ -45,7 +51,7 @@ systemctl enable --now caddy
 systemctl reload caddy
 
 echo "==> coturn"
-sed -e "s#__PUBLIC_IP__#${PUBLIC_IP}#" -e "s#__DOMAIN__#${DOMAIN}#" -e "s#__TURN_SECRET__#${TURN_SECRET}#" \
+sed -e "s#__PUBLIC_IP__#${EXTERNAL_IP}#" -e "s#__DOMAIN__#${DOMAIN}#" -e "s#__TURN_SECRET__#${TURN_SECRET}#" \
   "${SRC_DIR}/deploy/turnserver.conf" > /etc/turnserver.conf
 if [ -f /etc/default/coturn ]; then sed -i 's/^#\?TURNSERVER_ENABLED=.*/TURNSERVER_ENABLED=1/' /etc/default/coturn; fi
 install -m 755 "${SRC_DIR}/deploy/copy-turn-cert.sh" /usr/local/bin/copy-turn-cert.sh

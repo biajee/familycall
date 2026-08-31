@@ -14,8 +14,13 @@ export function loadDotEnv(path = resolve(ROOT, '.env')) {
     if (eq < 0) continue;
     const key = line.slice(0, eq).trim();
     let val = line.slice(eq + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
+    const q = val[0];
+    if (q === '"' || q === "'") {
+      const end = val.indexOf(q, 1);
+      if (end > 0) val = val.slice(1, end);
+    } else {
+      const hash = val.search(/\s#/); // strip inline comments: KEY=value   # note
+      if (hash !== -1) val = val.slice(0, hash).trimEnd();
     }
     if (!(key in process.env)) process.env[key] = val;
   }

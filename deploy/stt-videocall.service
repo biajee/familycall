@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=simple
 User=videocall
 WorkingDirectory=/opt/stt-videocall
-EnvironmentFile=/opt/stt-videocall/.env
+# .env is read by server/config.js itself (systemd's EnvironmentFile parser
+# would keep inline comments in the values).
 ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=3
