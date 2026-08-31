@@ -25,11 +25,10 @@ export class OpenAITranscriber extends WsTranscriber {
 
   _open() {
     if (!this.cfg.apiKey) throw new Error('OPENAI_API_KEY is not set');
+    // No OpenAI-Beta header: that selects the retired beta protocol
+    // ("The Realtime Beta API is no longer supported").
     return new WebSocket(this.cfg.url, {
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        'OpenAI-Beta': 'realtime=v1',
-      },
+      headers: { Authorization: `Bearer ${this.cfg.apiKey}` },
     });
   }
 
@@ -44,24 +43,24 @@ export class OpenAITranscriber extends WsTranscriber {
     }
     if (this.prompt) transcription.prompt = this.prompt;
     const nr = this.cfg.noiseReduction;
+    const input = {
+      format: { type: 'audio/pcm', rate: OpenAITranscriber.audioRate },
+      noise_reduction: nr && nr !== 'none' ? { type: nr } : null,
+      transcription,
+    };
+    if (!this.cfg.model.startsWith('gpt-live')) {
+      // gpt-live-* models handle turn-taking themselves (see `delay`) and
+      // reject turn_detection; the gpt-4o-* transcribe models still need VAD.
+      input.turn_detection = {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 600,
+      };
+    }
     return {
       type: 'session.update',
-      session: {
-        type: 'transcription',
-        audio: {
-          input: {
-            format: { type: 'audio/pcm', rate: OpenAITranscriber.audioRate },
-            noise_reduction: nr && nr !== 'none' ? { type: nr } : null,
-            transcription,
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 600,
-            },
-          },
-        },
-      },
+      session: { type: 'transcription', audio: { input } },
     };
   }
 

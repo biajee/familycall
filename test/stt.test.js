@@ -30,15 +30,16 @@ test('openai session config uses the transcription session shape', () => {
   assert.deepEqual(s.session.audio.input.format, { type: 'audio/pcm', rate: 24000 });
   assert.deepEqual(s.session.audio.input.transcription.languages, ['zh-cn', 'en']);
   assert.equal(s.session.audio.input.transcription.prompt, 'family call');
-  assert.equal(s.session.audio.input.turn_detection.type, 'server_vad');
+  assert.equal(s.session.audio.input.turn_detection, undefined, 'gpt-live models reject turn_detection');
   assert.deepEqual(openaiLanguages('zh-CN'), ['zh-cn']);
   assert.deepEqual(openaiLanguages('en-US'), ['en']);
 
   const legacyCfg = { ...cfg, openai: { ...cfg.openai, model: 'gpt-4o-transcribe' } };
   const legacy = new OpenAITranscriber({ lang: 'en-US', cfg: legacyCfg, onText() {}, onStatus() {} });
-  const t = legacy._sessionConfig().session.audio.input.transcription;
-  assert.equal(t.language, 'en');
-  assert.equal(t.languages, undefined);
+  const li = legacy._sessionConfig().session.audio.input;
+  assert.equal(li.transcription.language, 'en');
+  assert.equal(li.transcription.languages, undefined);
+  assert.equal(li.turn_detection.type, 'server_vad');
 });
 
 test('openai events accumulate deltas per item and finalize', () => {
