@@ -194,6 +194,25 @@ test('xfyun results map to per-utterance interim/final captions', () => {
   tx.ws = { send: (b) => sent.push(b.length) };
   tx._sendAudio(Buffer.alloc(3200));
   assert.deepEqual(sent, [1280, 1280, 640]);
+
+  // 大模型版 envelope: {msg_type, data:{...}} with data as an object
+  events.length = 0;
+  statuses.length = 0;
+  const llm = new XfyunTranscriber({ lang: 'zh-CN', cfg, onText: (e) => events.push(e), onStatus: (ok, m) => statuses.push([ok, m]) });
+  llm._onMessage({ msg_type: 'action', data: { action: 'started', sessionId: 'sess-1' } });
+  assert.equal(llm.sessionId, 'sess-1');
+  const llmResult = (type, words, ls) => ({
+    msg_type: 'result',
+    res_type: 'asr',
+    data: { seg_id: 0, ls, cn: { st: { type, rt: [{ ws: words.map((w) => ({ cw: [{ w }] })) }] } } },
+  });
+  llm._onMessage(llmResult('1', ['今天'], false));
+  llm._onMessage(llmResult('0', ['今天天气好'], true));
+  assert.deepEqual(events, [
+    { key: 'u0', text: '今天', final: false },
+    { key: 'u0', text: '今天天气好', final: true },
+  ]);
+  assert.deepEqual(statuses, [[true, 'ok']]);
 });
 
 test('providerInfo reports audio rate and auto-language support', () => {

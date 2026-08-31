@@ -39,7 +39,7 @@ const ui = {
   btnCloseSettings: $('#btnCloseSettings'),
 };
 
-const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞 iFlytek', mock: 'Mock' };
+const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞', mock: 'Mock' };
 
 const state = {
   inCall: false,
@@ -120,10 +120,16 @@ function setStatus(text) {
 }
 
 
-function setSttStatus(ok, message) {
+function setSttStatus(ok, message, provider) {
   state.sttOk = ok;
+  const name = provider || state.stt?.name;
+  const label = (name && PROVIDER_LABELS[name]) || name || '';
   ui.sttDot.className = 'dot ' + (ok === null ? '' : ok ? 'ok' : 'bad');
-  ui.capLabel.textContent = ok === null ? T.captionsIdle : ok ? T.captionsOn : `${T.captionsOff}${message ? ' · ' + message : ''}`;
+  ui.capLabel.textContent = ok === null
+    ? (label ? `${label} · ${T.captionsIdle}` : T.captionsIdle)
+    : ok
+      ? `${label ? label + ' ' : ''}${T.captionsOn}`
+      : `${T.captionsOff}${message ? ' · ' + message : ''}`;
 }
 
 function applyFont() {
@@ -258,7 +264,7 @@ function handleMessage(msg) {
       captions.update(msg);
       break;
     case 'stt-status':
-      setSttStatus(!!msg.ok, msg.ok ? '' : msg.message);
+      setSttStatus(!!msg.ok, msg.ok ? '' : msg.message, msg.provider);
       break;
     case 'stt-info':
       // Provider switched server-side; the audio rate may differ, so re-capture.

@@ -89,6 +89,26 @@ export class XfyunTranscriber extends WsTranscriber {
   }
 
   _onMessage(msg) {
+    // 大模型版 envelope: {msg_type:'action'|'result', data:{...}} with data as an object.
+    if (msg.msg_type) {
+      const d = msg.data || {};
+      if (msg.msg_type === 'action') {
+        if (d.action === 'started') {
+          this.sessionId = d.sessionId || null;
+          this.opts.onStatus?.(true, 'ok');
+        } else if (d.action === 'error' || d.code) {
+          this.log?.error('xfyun error:', JSON.stringify(d).slice(0, 300));
+          this.opts.onStatus?.(false, d.desc || d.message || `error ${d.code || ''}`);
+        }
+      } else if (msg.msg_type === 'result') {
+        this._onResult(d);
+      } else if (msg.msg_type === 'error') {
+        this.log?.error('xfyun error:', JSON.stringify(msg).slice(0, 300));
+        this.opts.onStatus?.(false, d.desc || 'error');
+      }
+      return;
+    }
+    // Classic RTASR envelope: {action, code, desc, data:"<json string>"}.
     switch (msg.action) {
       case 'started':
         this.sessionId = msg.sessionId || msg.sid || null;
@@ -101,22 +121,26 @@ export class XfyunTranscriber extends WsTranscriber {
       case 'result': {
         let d;
         try { d = JSON.parse(msg.data); } catch { return; }
-        const st = d?.cn?.st;
-        if (!st) return;
-        const text = (st.rt || [])
-          .flatMap((r) => r.ws || [])
-          .map((w) => w.cw?.[0]?.w || '')
-          .join('')
-          .trim();
-        const final = String(st.type) === '0';
-        const key = `u${this.utt}`;
-        if (final) this.utt++;
-        this.emit({ key, text, final });
+        this._onResult(d);
         break;
       }
       default:
         break;
     }
+  }
+
+  _onResult(d) {
+    const st = d?.cn?.st;
+    if (!st) return;
+    const text = (st.rt || [])
+      .flatMap((r) => r.ws || [])
+      .map((w) => w.cw?.[0]?.w || '')
+      .join('')
+      .trim();
+    const final = String(st.type) === '0';
+    const key = `u${this.utt}`;
+    if (final) this.utt++;
+    this.emit({ key, text, final });
   }
 
   _beforeClose() {
