@@ -86,9 +86,10 @@ Logs: `journalctl -u stt-videocall -f`, `tail -f /var/log/turnserver.log`.
 
 Everything about a phone is in its link, so you can prepare both links on your computer and send them by WeChat.
 
-The easy way: open the app, fill in your name and room, and tap **📋 复制爸爸的链接 / Copy Dad's link** — it
-copies a ready-made link for Dad (same room, Chinese UI, simple mode, big captions) that you can paste straight
-into WeChat. One tap on it opens the app with everything configured. For anything custom, build the link by hand:
+The easy way: open the app, fill in the room, and tap **📋 复制房间链接 / Copy room link** (also offered on the
+call screen while you wait for the other person). It copies a generic invite — just the room (and key) — that you
+can paste into WeChat. Anyone who opens it can join with one tap: they get simple mode, their phone's own
+language, and an automatically assigned name. For per-person settings, build the link by hand:
 
 | Parameter | Meaning |
 |-----------|---------|

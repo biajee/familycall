@@ -31,7 +31,7 @@ const ui = {
   btnFontDown: $('#btnFontDown'),
   btnHangup: $('#btnHangup'),
   btnInvite: $('#btnInvite'),
-  btnMyLink: $('#btnMyLink'),
+  btnInviteCall: $('#btnInviteCall'),
 };
 
 const state = {
@@ -56,11 +56,12 @@ const state = {
 
 const captions = new Captions(ui.captions);
 let profile = loadProfile();
+saveProfile(); // persist URL-derived identity and any auto-assigned name
 let T = STRINGS[profile.ui];
 let toastTimer = null;
 
 // Debug / end-to-end test hook.
-window.__familycall = { state, profile, captions, inviteLink: (...a) => inviteLink(...a), myLink: (...a) => myLink(...a) };
+window.__familycall = { state, profile, captions, roomLink: (...a) => roomLink(...a) };
 
 /* ---------- profile ---------- */
 
@@ -78,6 +79,9 @@ function loadProfile() {
   p.font = clamp(Number(p.font) || 30, FONT_MIN, FONT_MAX);
   p.name = (p.name || '').slice(0, 32);
   p.room = (p.room || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+  // A generic room link carries no name: assign one so the person can join
+  // with a single tap (kept in localStorage, so it stays stable).
+  if (!p.name) p.name = (p.ui === 'zh' ? '家人' : 'Guest') + Math.floor(100 + Math.random() * 900);
   return p;
 }
 
@@ -105,6 +109,13 @@ function toast(msg, ms = 3500) {
 function setStatus(text) {
   ui.status.textContent = text || '';
   ui.status.classList.toggle('hidden', !text);
+}
+
+// While waiting alone in the room, offer the invite link right on the call
+// screen (hidden in simple mode to keep Dad's screen minimal).
+function updateInviteCallBtn() {
+  const waiting = state.inCall && !state.peer && !profile.simple;
+  ui.btnInviteCall.classList.toggle('hidden', !waiting);
 }
 
 function setSttStatus(ok, message) {
@@ -224,6 +235,7 @@ function handleMessage(msg) {
       if (msg.stt.autoLang === false && profile.lang === 'auto') toast(T.noAutoLang, 6000);
       if (msg.peers && msg.peers[0]) onPeerJoined(msg.peers[0], msg.polite);
       else setStatus(T.waitingPeer);
+      updateInviteCallBtn();
       break;
     case 'peer-joined':
       onPeerJoined(msg.peer, msg.polite);
@@ -256,6 +268,7 @@ function handleMessage(msg) {
 function onPeerJoined(peer, polite) {
   state.peer = peer;
   state.polite = polite;
+  updateInviteCallBtn();
   teardownPeer();
   setStatus(T.connecting);
   state.call = new Call({
@@ -286,6 +299,7 @@ function onPeerLeft() {
   teardownPeer();
   state.peer = null;
   setStatus(`${T.peerLeft} · ${T.waitingPeer}`);
+  updateInviteCallBtn();
 }
 
 function teardownPeer() {
@@ -340,6 +354,7 @@ function leaveCall() {
   ui.btnMute.classList.remove('active');
   ui.btnCam.classList.remove('active');
   setStatus('');
+  updateInviteCallBtn();
   idleScreen();
 }
 
@@ -373,28 +388,13 @@ function currentConfig() {
   };
 }
 
-// Ready-made link for Dad: same room (and key), Chinese UI, simple mode, big
-// captions. Sent over WeChat, one tap on it opens straight into the call screen.
-function inviteLink() {
+// Generic invite: anyone opening it joins this room. No name in the link —
+// the app assigns one automatically — and simple mode gives one-tap joining;
+// UI and spoken language fall back to the phone's own language.
+function roomLink() {
   const room = currentConfig().room;
   if (!room) return null;
-  const p = new URLSearchParams({
-    room, name: '爸爸', lang: 'zh-CN', ui: 'zh', simple: '1', font: '40',
-  });
-  if (profile.key) p.set('key', profile.key);
-  return `${location.origin}/?${p.toString()}`;
-}
-
-// This phone's own configuration as a link, for installing/sharing.
-function myLink() {
-  const c = currentConfig();
-  if (!c.room) return null;
-  const p = new URLSearchParams({ room: c.room });
-  if (c.name) p.set('name', c.name);
-  p.set('lang', c.lang);
-  p.set('ui', c.ui);
-  if (c.simple) p.set('simple', '1');
-  p.set('font', String(c.font));
+  const p = new URLSearchParams({ room, simple: '1' });
   if (profile.key) p.set('key', profile.key);
   return `${location.origin}/?${p.toString()}`;
 }
@@ -417,8 +417,8 @@ async function copyLink(url, copiedMsg) {
   if (ok) toast(copiedMsg, 6000);
   else window.prompt(T.inviteManual, url);
 }
-ui.btnInvite.addEventListener('click', () => copyLink(inviteLink(), T.inviteCopied));
-ui.btnMyLink.addEventListener('click', () => copyLink(myLink(), T.linkCopied));
+ui.btnInvite.addEventListener('click', () => copyLink(roomLink(), T.inviteCopied));
+ui.btnInviteCall.addEventListener('click', () => copyLink(roomLink(), T.inviteCopied));
 
 ui.quickJoin.addEventListener('click', () => joinCall());
 ui.quickSettings.addEventListener('click', () => {

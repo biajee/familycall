@@ -114,18 +114,11 @@ try {
     if (ok !== true) fail(`${label}: STT status is ${ok}`);
   }
 
-  const invite = await a.evaluate(() => window.__familycall.inviteLink());
-  const wantInvite = ['room=e2e-room', 'lang=zh-CN', 'ui=zh', 'simple=1', 'font=40', `name=${encodeURIComponent('爸爸')}`];
-  for (const part of wantInvite) {
-    if (!invite || !invite.includes(part)) fail(`invite link missing "${part}": ${invite}`);
+  const invite = await a.evaluate(() => window.__familycall.roomLink());
+  if (!invite || !invite.includes('room=e2e-room') || !invite.includes('simple=1') || invite.includes('name=')) {
+    fail(`room link should carry room+simple and no name: ${invite}`);
   }
-  console.log('A invite link:', invite);
-
-  const mine = await a.evaluate(() => window.__familycall.myLink());
-  for (const part of ['room=e2e-room', 'name=Alice', 'lang=en-US', 'ui=en', 'simple=1']) {
-    if (!mine || !mine.includes(part)) fail(`my link missing "${part}": ${mine}`);
-  }
-  console.log('A my link:', mine);
+  console.log('A room link:', invite);
 
   const before = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
   await b.click('#btnFontUp');
@@ -140,6 +133,24 @@ try {
 
   await a.screenshot({ path: `${artifacts}/phone-a.png` });
   await b.screenshot({ path: `${artifacts}/phone-b.png` });
+
+  // A generic room link (no name) auto-assigns a name and joins with one tap.
+  const ctxC = await browser.createBrowserContext();
+  const c = await ctxC.newPage();
+  await c.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await c.goto(`${base}/?room=e2e-wait&simple=1`, { waitUntil: 'networkidle0' });
+  await c.waitForSelector('#quickJoin', { visible: true });
+  const autoName = await c.evaluate(() => window.__familycall.profile.name);
+  if (!/^(Guest|家人)\d{3}$/.test(autoName || '')) fail(`expected auto-assigned name, got "${autoName}"`);
+  console.log(`C: generic room link -> one-tap join screen with auto name "${autoName}"`);
+
+  // Non-simple mode: the invite button is offered while waiting alone in the room.
+  await c.goto(`${base}/?room=e2e-wait&simple=0`, { waitUntil: 'networkidle0' });
+  await c.click('#setupForm button[type=submit]');
+  await c.waitForFunction(() => !document.getElementById('btnInviteCall').classList.contains('hidden'), { timeout: 10000 });
+  console.log('C: invite button shown while waiting for the peer');
+  await c.screenshot({ path: `${artifacts}/phone-c-waiting.png` });
+  await ctxC.close();
 
   await a.click('#btnHangup'); // confirm dialog auto-accepted
   await b.waitForFunction(() => document.getElementById('callStatus').textContent.includes('对方已离开'), { timeout: 10000 });
