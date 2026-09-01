@@ -7,6 +7,7 @@ import { buildIceServers } from './turn.js';
 import { createTranscriber, providerInfo, availableProviders } from './stt/index.js';
 import { serveStatic } from './static.js';
 import { createLogger } from './log.js';
+import { createPush } from './push.js';
 
 const MAX_AUDIO_FRAME = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -16,8 +17,9 @@ const HEARTBEAT_MS = 20_000;
  *   text frames  = JSON control messages (join/signal/update/leave, caption/peer-* events)
  *   binary frames = the sender's own microphone as int16 mono PCM at `stt.audioRate`
  */
-export function createApp(cfg) {
+export function createApp(cfg, deps = {}) {
   const log = createLogger(cfg.logLevel);
+  const push = deps.push || createPush(cfg, log);
   const rooms = new Rooms();
   const stt = providerInfo(cfg);
   const sttProviders = availableProviders(cfg);
@@ -28,11 +30,39 @@ export function createApp(cfg) {
   const clients = new Set();
   const publicDir = join(cfg.root, 'public');
 
-  const server = http.createServer((req, res) => {
+  const json = (res, status, obj) => {
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(obj));
+  };
+  const readJson = (req, limit = 8192) => new Promise((resolveBody, reject) => {
+    let body = '';
+    req.on('data', (c) => {
+      body += c;
+      if (body.length > limit) { reject(new Error('too large')); req.destroy(); }
+    });
+    req.on('end', () => { try { resolveBody(JSON.parse(body)); } catch (e) { reject(e); } });
+    req.on('error', reject);
+  });
+
+  const server = http.createServer(async (req, res) => {
     if (req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, provider: stt.name, rooms: rooms.rooms.size, clients: clients.size }));
-      return;
+      return json(res, 200, { ok: true, provider: stt.name, rooms: rooms.rooms.size, clients: clients.size });
+    }
+    if (req.url === '/push/config') {
+      return json(res, 200, { enabled: push.enabled, publicKey: push.publicKey });
+    }
+    if (req.url === '/push/subscribe' && req.method === 'POST') {
+      let body;
+      try { body = await readJson(req); } catch { return json(res, 400, { error: 'bad_json' }); }
+      const roomId = sanitizeRoom(body.room);
+      if (!roomId) return json(res, 400, { error: 'bad_room' });
+      if (cfg.roomKey && body.key !== cfg.roomKey) return json(res, 403, { error: 'bad_key' });
+      const device = String(body.device || '').slice(0, 32);
+      if (!device || !body.subscription?.endpoint) return json(res, 400, { error: 'bad_subscription' });
+      if (!push.enabled) return json(res, 503, { error: 'push_disabled' });
+      push.subscribe(roomId, device, sanitizeName(body.name), body.subscription);
+      log.info(`[push] ${device} subscribed to room "${roomId}" (${push.count(roomId)} devices)`);
+      return json(res, 200, { ok: true });
     }
     serveStatic(publicDir, req, res);
   });
@@ -109,6 +139,8 @@ export function createApp(cfg) {
       stt: null,
       sttChoice: '', // '' = server default provider
       nextSeg: 0,
+      device: '', // per-phone id from the app (localStorage); excludes the caller from its own ring
+      listening: null, // room this idle phone wants to be rung for
       alive: true,
       closeStt(reason) {
         if (!this.stt) return;
@@ -120,6 +152,42 @@ export function createApp(cfg) {
     return client;
   }
 
+  /** Idle phones (app open on the start screen) that asked to be rung for a room. */
+  const listeners = (roomId, exceptDevice) => [...clients]
+    .filter((c) => c.listening === roomId && !c.room && !(exceptDevice && c.device === exceptDevice));
+
+  function ringRoom(roomId, caller) {
+    const payload = { type: 'ring', room: roomId, from: caller.name };
+    for (const l of listeners(roomId, caller.device)) send(l, payload);
+    const q = new URLSearchParams({ room: roomId, simple: '1', ring: '1', from: caller.name });
+    if (cfg.roomKey) q.set('key', cfg.roomKey);
+    push.notifyRoom(roomId, {
+      title: '家庭通话 · Family Call',
+      body: `${caller.name} 正在呼叫你 · ${caller.name} is calling`,
+      url: `/?${q.toString()}`,
+    }, caller.device).then((n) => {
+      if (n) log.info(`[${caller.id}] rang ${n} device(s) in room "${roomId}"`);
+    }).catch((err) => log.warn('push failed:', err.message));
+  }
+
+  function cancelRing(roomId) {
+    for (const l of listeners(roomId)) send(l, { type: 'ring-cancel', room: roomId });
+  }
+
+  function onListen(client, msg) {
+    const roomId = sanitizeRoom(msg.room);
+    if (!roomId) return sendError(client, 'bad_room', 'Invalid room name');
+    if (cfg.roomKey && msg.key !== cfg.roomKey) return sendError(client, 'bad_key', 'Wrong room key');
+    if (typeof msg.device === 'string') client.device = msg.device.slice(0, 32);
+    client.listening = roomId;
+    send(client, { type: 'listening', room: roomId });
+    // Someone is already waiting alone in the room: ring right away.
+    const waiting = rooms.members(roomId);
+    if (waiting.length === 1 && waiting[0].device !== client.device) {
+      send(client, { type: 'ring', room: roomId, from: waiting[0].name });
+    }
+  }
+
   function doLeave(client) {
     client.closeStt('leave');
     if (!client.room) return;
@@ -127,6 +195,7 @@ export function createApp(cfg) {
     client.room = null;
     const remaining = rooms.leave(roomId, client.id);
     for (const p of remaining) send(p, { type: 'peer-left', id: client.id });
+    if (remaining.length === 0) cancelRing(roomId); // the caller gave up: stop ringing idle phones
     log.info(`[${client.id}] left room "${roomId}" (${remaining.length} remaining)`);
   }
 
@@ -137,7 +206,9 @@ export function createApp(cfg) {
     if (client.room) doLeave(client);
     client.name = sanitizeName(msg.name);
     client.lang = sanitizeLang(msg.lang);
+    if (typeof msg.device === 'string') client.device = msg.device.slice(0, 32);
     if (validChoice(msg.stt)) client.sttChoice = msg.stt;
+    client.listening = null;
     const r = rooms.join(roomId, client);
     if (!r.ok) return sendError(client, r.code, r.code === 'room_full' ? 'Room is full' : r.code);
     client.room = roomId;
@@ -154,6 +225,8 @@ export function createApp(cfg) {
       sttProviders,
     });
     for (const other of r.others) send(other, { type: 'peer-joined', peer: publicPeer(client), polite: false });
+    if (r.others.length === 0) ringRoom(roomId, client); // first in: ring the other phone(s)
+    else cancelRing(roomId); // room is now full: stop ringing anyone else
     log.info(`[${client.id}] "${client.name}" (${client.lang}) joined room "${roomId}" from ${client.ip}; peers=${r.others.length + 1}`);
   }
 
@@ -215,6 +288,7 @@ export function createApp(cfg) {
       }
       switch (msg.type) {
         case 'join': return onJoin(client, msg);
+        case 'listen': return onListen(client, msg);
         case 'signal': return onSignal(client, msg);
         case 'update': return onUpdate(client, msg);
         case 'leave': return doLeave(client);

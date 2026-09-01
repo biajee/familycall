@@ -6,12 +6,21 @@ import { loadConfig } from '../server/config.js';
 
 let app;
 let base;
+const pushed = []; // fake Web Push transport
+const subscribed = [];
+const fakePush = {
+  enabled: true,
+  publicKey: 'test-public-key',
+  subscribe: (room, device, name, subscription) => subscribed.push({ room, device, name, endpoint: subscription.endpoint }),
+  count: () => subscribed.length,
+  notifyRoom: async (room, payload, except) => { pushed.push({ room, payload, except }); return 1; },
+};
 
 before(async () => {
   app = createApp(loadConfig({
     PORT: '0', HOST: '127.0.0.1', STT_PROVIDER: 'mock', LOG_LEVEL: 'silent', ROOM_KEY: 'pw',
     TURN_URLS: 'turn:turn.example:3478', TURN_SECRET: 'abc',
-  }));
+  }), { push: fakePush });
   const addr = await app.listen();
   base = `127.0.0.1:${addr.port}`;
 });
@@ -153,6 +162,54 @@ test('wrong room key and bad room are rejected', async () => {
   c.ws.send('not json');
   assert.equal((await c.until('error')).code, 'bad_json');
   c.ws.close();
+});
+
+test('ringing: idle phones get ring/ring-cancel and subscribed phones get a push', async () => {
+  // push opt-in over HTTP
+  const cfgRes = await fetch(`http://${base}/push/config`).then((r) => r.json());
+  assert.deepEqual(cfgRes, { enabled: true, publicKey: 'test-public-key' });
+  const sub = await fetch(`http://${base}/push/subscribe`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ room: 'ring', key: 'pw', name: '爸爸', device: 'dad-phone', subscription: { endpoint: 'https://push.example/abc', keys: {} } }),
+  });
+  assert.equal(sub.status, 200);
+  assert.deepEqual(subscribed.at(-1), { room: 'ring', device: 'dad-phone', name: '爸爸', endpoint: 'https://push.example/abc' });
+  const bad = await fetch(`http://${base}/push/subscribe`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ room: 'ring', key: 'wrong', device: 'x', subscription: { endpoint: 'e' } }),
+  });
+  assert.equal(bad.status, 403);
+
+  // Dad's app is open on the start screen: it listens for its room
+  const dad = client();
+  await dad.open;
+  dad.send({ type: 'listen', room: 'ring', key: 'pw', device: 'dad-phone' });
+  assert.equal((await dad.until('listening')).room, 'ring');
+
+  // daughter starts a call -> Dad's open app rings, and his subscribed phone gets a push (not her own)
+  const daughter = client();
+  await daughter.open;
+  daughter.send({ type: 'join', room: 'ring', name: '女儿', lang: 'zh-CN', key: 'pw', device: 'her-phone' });
+  await daughter.until('joined');
+  const ring = await dad.until('ring');
+  assert.equal(ring.from, '女儿');
+  assert.equal(ring.room, 'ring');
+  assert.deepEqual(pushed.at(-1).except, 'her-phone');
+  assert.match(pushed.at(-1).payload.body, /女儿/);
+  assert.match(pushed.at(-1).payload.url, /room=ring.*ring=1/);
+
+  // a phone that starts listening while she is already waiting is rung immediately
+  const late = client();
+  await late.open;
+  late.send({ type: 'listen', room: 'ring', key: 'pw', device: 'late-phone' });
+  await late.until('listening');
+  assert.equal((await late.until('ring')).from, '女儿');
+
+  // she gives up -> ringing stops
+  daughter.send({ type: 'leave' });
+  await dad.until('ring-cancel');
+  await late.until('ring-cancel');
+  dad.ws.close(); late.ws.close(); daughter.ws.close();
 });
 
 test('socket close leaves the room', async () => {

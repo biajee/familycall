@@ -105,7 +105,7 @@ language, and an automatically assigned name. For per-person settings, build the
 | `room`    | Both phones must use the same room name. Treat it like a password: use something unguessable, e.g. `wang-family-7h3k9q`. |
 | `name`    | This person's name (爸爸, 女儿, …); shown in the settings screen. Captions show direction by alignment: incoming on the left, your own on the right. |
 | `lang`    | What this person speaks: `zh-CN`, `en-US`, or `auto` (中/英 mixed; OpenAI only). |
-| `ui`      | Interface language: `zh` or `en`. |
+| `ui`      | Interface language: `zh` (default) or `en`. |
 | `simple=1`| Simple mode: the app opens with a single huge "开始通话" button (for Dad). |
 | `font`    | Starting caption size in px (default 30; 36–44 is comfortable for older eyes). |
 | `key`     | Only if you set `ROOM_KEY` in `.env`. |
@@ -139,8 +139,23 @@ so Dad's icon always opens straight into the family room with the Chinese UI and
 
 ### Making a call
 
-There is no ringing (yet). Agree on a time (or send a WeChat message "打开家庭通话"), both tap the icon, then
-**开始通话 / Start call**. Whoever opens it first sees "等待对方加入…" until the other one joins.
+Both tap the icon, then **开始通话 / Start call**. Whoever opens it first sees "等待对方加入…" until the other
+one joins.
+
+### Ringing (来电提醒)
+
+Starting a call rings the other phone in two ways:
+
+* **App open on the start screen** — it stays connected and shows a full-screen "女儿 来电 · 接听" with a ring
+  tone and vibration the moment the other person taps Start.
+* **App closed** — Web Push. Each phone opts in once by tapping **🔔 开启来电提醒 / Enable call alerts** on its
+  start screen (allow notifications). After that a call produces a system notification "女儿 正在呼叫你"; tapping
+  it opens the app on the answer screen. On **iPhone** this works only after the page was added to the Home
+  Screen and launched from there (Apple's push service is reachable from China). On **Android in mainland
+  China** the browser's push relies on Google's FCM, which is blocked, so only the open-app ring is reliable
+  there; Dad can leave the app open when a call is expected.
+
+The server needs VAPID keys (`setup-vps.sh` generates them into `.env`); subscriptions are kept in `data/`.
 
 In-call buttons: 🔗 copy room link · 🎤 mute · 📷 camera off · 🔄 front/back camera · A− / A+ caption size · 📵 hang up.
 The dot above the captions is green when the caption service is connected.

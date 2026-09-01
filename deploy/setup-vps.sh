@@ -43,6 +43,18 @@ else
   TURN_SECRET="$(grep -E '^TURN_SECRET=' "${APP_DIR}/.env" | cut -d= -f2-)"
   echo "    keeping existing ${APP_DIR}/.env"
 fi
+# Web Push (ringing) keys, generated once.
+if ! grep -qE '^VAPID_PRIVATE_KEY=.+' "${APP_DIR}/.env"; then
+  VAPID="$(cd "${APP_DIR}" && node -e "const w=require('web-push');const k=w.generateVAPIDKeys();console.log(k.publicKey+' '+k.privateKey)")"
+  sed -i -e '/^VAPID_PUBLIC_KEY=/d' -e '/^VAPID_PRIVATE_KEY=/d' -e '/^VAPID_SUBJECT=/d' "${APP_DIR}/.env"
+  {
+    echo "VAPID_PUBLIC_KEY=${VAPID%% *}"
+    echo "VAPID_PRIVATE_KEY=${VAPID##* }"
+    echo "VAPID_SUBJECT=mailto:admin@${DOMAIN}"
+  } >> "${APP_DIR}/.env"
+  echo "    generated Web Push (VAPID) keys"
+fi
+mkdir -p "${APP_DIR}/data"
 chown -R videocall:videocall "${APP_DIR}"
 
 echo "==> Caddy (HTTPS for ${DOMAIN})"

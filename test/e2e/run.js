@@ -207,17 +207,41 @@ try {
   console.log('C: room-link button available in the controls');
 
   // Caption bubbles fade out (default 30s after their last update; 1s here).
+  // (C defaulted to Chinese, so the mock speaks Chinese here.)
   await c.waitForFunction(
-    () => [...document.querySelectorAll('#captions .cap .txt')].some((e) => /test caption 1\./.test(e.textContent)),
+    () => [...document.querySelectorAll('#captions .cap .txt')].some((e) => /(test caption|测试字幕) 1[.。]/.test(e.textContent)),
     { timeout: 20000 },
   );
   await c.waitForFunction(
-    () => ![...document.querySelectorAll('#captions .cap .txt')].some((e) => /test caption 1\./.test(e.textContent)),
+    () => ![...document.querySelectorAll('#captions .cap .txt')].some((e) => /(test caption|测试字幕) 1[.。]/.test(e.textContent)),
     { timeout: 20000 },
   );
   console.log('C: caption faded out after the configured delay');
   await c.screenshot({ path: `${artifacts}/phone-c-waiting.png` });
   await ctxC.close();
+
+  // Ringing: an idle phone on the start screen is rung when the other person joins its room.
+  const ctxD = await browser.createBrowserContext();
+  const d = await ctxD.newPage();
+  await d.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await d.goto(`${base}/?room=e2e-ring&name=%E7%88%B8%E7%88%B8&simple=1&ui=zh`, { waitUntil: 'networkidle0' });
+  await d.waitForSelector('#quickJoin', { visible: true });
+  const ctxE = await browser.createBrowserContext();
+  const e = await ctxE.newPage();
+  await e.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  e.on('dialog', (dlg) => dlg.accept());
+  await e.goto(`${base}/?room=e2e-ring&name=%E5%A5%B3%E5%84%BF&simple=1&ui=zh`, { waitUntil: 'networkidle0' });
+  await e.click('#quickJoin');
+  await d.waitForSelector('#incoming', { visible: true, timeout: 10000 });
+  const from = await d.$eval('#incomingFrom', (el) => el.textContent);
+  if (!from.includes('女儿')) fail(`incoming overlay should name the caller, got "${from}"`);
+  console.log(`D: rang with "${from}"`);
+  await d.screenshot({ path: `${artifacts}/phone-d-ringing.png` });
+  await d.click('#btnAnswer');
+  await d.waitForFunction(() => window.__familycall.state.connectionState === 'connected', { timeout: 20000 });
+  console.log('D: answered and connected');
+  await ctxE.close();
+  await ctxD.close();
 
   await a.click('#btnHangup'); // confirm dialog auto-accepted
   await b.waitForFunction(() => document.getElementById('callStatus').textContent.includes('对方已离开'), { timeout: 10000 });

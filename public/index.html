@@ -38,6 +38,7 @@
       <label class="check"><input type="checkbox" name="simple"><span data-i18n="simpleMode">简易模式</span></label>
       <button type="submit" class="primary big" data-i18n="startCall">开始通话</button>
       <button type="button" id="btnInvite" class="secondary" data-i18n="inviteCopy">复制房间链接</button>
+      <button type="button" id="btnAlertsSetup" class="secondary hidden"></button>
     </form>
     <p class="hint" data-i18n="setupHint"></p>
   </section>
@@ -46,6 +47,8 @@
     <h1 data-i18n="appTitle">家庭通话</h1>
     <p id="quickInfo" class="hint"></p>
     <button id="quickJoin" class="primary huge" data-i18n="startCall">开始通话</button>
+    <button id="btnAlerts" class="secondary hidden"></button>
+    <p id="alertsHint" class="hint hidden"></p>
     <button id="quickSettings" class="link" data-i18n="settings">设置</button>
   </section>
 
@@ -82,6 +85,13 @@
     </div>
   </section>
 
+  <div id="incoming" class="hidden">
+    <div class="card">
+      <div id="incomingFrom" class="from"></div>
+      <button id="btnAnswer" class="primary huge" data-i18n="answer">接听</button>
+      <button id="btnIgnore" class="link" data-i18n="ignore">忽略</button>
+    </div>
+  </div>
   <div id="toast" class="hidden"></div>
 </main>
 <script type="module" src="app.js"></script>

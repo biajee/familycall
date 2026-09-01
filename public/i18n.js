@@ -45,6 +45,14 @@ export const STRINGS = {
     sttDefault: '默认',
     sttOff: '关闭字幕',
     done: '完成',
+    alertsEnable: '🔔 开启来电提醒',
+    alertsOn: '🔔 来电提醒已开启',
+    alertsDenied: '未获得通知权限，无法提醒来电',
+    alertsFailed: '开启来电提醒失败，请稍后再试',
+    alertsIosHint: '先把本页“添加到主屏幕”，再从主屏幕图标打开，就可以开启来电提醒。',
+    incomingCall: (name) => `${name} 来电`,
+    answer: '接听',
+    ignore: '忽略',
   },
   en: {
     appTitle: 'Family Call',
@@ -92,13 +100,16 @@ export const STRINGS = {
     sttDefault: 'Default',
     sttOff: 'Captions off',
     done: 'Done',
+    alertsEnable: '🔔 Enable call alerts',
+    alertsOn: '🔔 Call alerts on',
+    alertsDenied: 'Notification permission was denied; cannot alert you to calls',
+    alertsFailed: 'Could not enable call alerts, please try again later',
+    alertsIosHint: 'Add this page to your Home Screen and open it from there to enable call alerts.',
+    incomingCall: (name) => `${name} is calling`,
+    answer: 'Answer',
+    ignore: 'Ignore',
   },
 };
-
-export function detectUiLang() {
-  const l = (navigator.language || 'en').toLowerCase();
-  return l.startsWith('zh') ? 'zh' : 'en';
-}
 
 export function applyI18n(ui) {
   const T = STRINGS[ui] || STRINGS.en;

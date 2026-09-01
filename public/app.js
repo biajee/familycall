@@ -1,4 +1,4 @@
-import { STRINGS, applyI18n, detectUiLang } from './i18n.js';
+import { STRINGS, applyI18n } from './i18n.js';
 import { Signaling } from './signaling.js';
 import { Call } from './peer.js';
 import { MicCapture } from './capture.js';
@@ -37,6 +37,13 @@ const ui = {
   selProvider: $('#selProvider'),
   selLang: $('#selLang'),
   btnCloseSettings: $('#btnCloseSettings'),
+  btnAlerts: $('#btnAlerts'),
+  btnAlertsSetup: $('#btnAlertsSetup'),
+  alertsHint: $('#alertsHint'),
+  incoming: $('#incoming'),
+  incomingFrom: $('#incomingFrom'),
+  btnAnswer: $('#btnAnswer'),
+  btnIgnore: $('#btnIgnore'),
 };
 
 const PROVIDER_LABELS = { openai: 'OpenAI', deepgram: 'Deepgram', xfyun: '讯飞', funasr: 'FunASR', mock: 'Mock' };
@@ -69,7 +76,7 @@ let T = STRINGS[profile.ui];
 let toastTimer = null;
 
 // Debug / end-to-end test hook.
-window.__familycall = { state, profile, captions, roomLink: (...a) => roomLink(...a) };
+window.__familycall = { state, profile, captions, roomLink: (...a) => roomLink(...a), showIncoming, hideIncoming };
 
 /* ---------- profile ---------- */
 
@@ -82,7 +89,7 @@ function loadProfile() {
   for (const k of ['name', 'room', 'lang', 'ui', 'key', 'stt']) if (q.has(k)) p[k] = q.get(k).trim();
   if (q.has('simple')) p.simple = q.get('simple') === '1';
   if (q.has('font')) p.font = Number(q.get('font'));
-  if (!['zh', 'en'].includes(p.ui)) p.ui = detectUiLang();
+  if (!['zh', 'en'].includes(p.ui)) p.ui = 'zh'; // Chinese by default; ?ui=en or the settings switch it
   if (!['zh-CN', 'en-US', 'auto'].includes(p.lang)) p.lang = p.ui === 'zh' ? 'zh-CN' : 'en-US';
   p.font = clamp(Number(p.font) || 30, FONT_MIN, FONT_MAX);
   p.name = (p.name || '').slice(0, 32);
@@ -90,6 +97,8 @@ function loadProfile() {
   // A generic room link carries no name: assign one so the person can join
   // with a single tap (kept in localStorage, so it stays stable).
   if (!p.name) p.name = (p.ui === 'zh' ? '家人' : 'Guest') + Math.floor(100 + Math.random() * 900);
+  // Stable per-phone id: keeps a caller from ringing their own phone.
+  if (!p.device) p.device = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).replace(/-/g, '').slice(0, 12);
   return p;
 }
 
@@ -158,6 +167,144 @@ function idleScreen() {
     fillForm();
     show(ui.setup);
   }
+  startPresence();
+  updateAlertsUI();
+}
+
+/* ---------- ringing: presence connection + incoming-call overlay ---------- */
+
+let presence = null;
+let ringTimer = null;
+let ringAudio = null;
+
+// While the app is open on the start screen, stay connected so the server can
+// ring us the moment the other person starts a call in our room.
+function startPresence() {
+  if (presence || !profile.room || state.inCall) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const sig = new Signaling(`${proto}://${location.host}/ws`);
+  sig.onopen = () => sig.send({ type: 'listen', room: profile.room, key: profile.key || '', device: profile.device });
+  sig.onmessage = (msg) => {
+    if (msg.type === 'ring') showIncoming(msg.from);
+    else if (msg.type === 'ring-cancel') hideIncoming();
+  };
+  sig.onfail = () => {};
+  presence = sig;
+  sig.connect();
+}
+
+function stopPresence() {
+  presence?.close();
+  presence = null;
+}
+
+function showIncoming(from) {
+  ui.incomingFrom.textContent = T.incomingCall(from || '');
+  ui.incoming.classList.remove('hidden');
+  startRinging();
+}
+
+function hideIncoming() {
+  ui.incoming.classList.add('hidden');
+  stopRinging();
+}
+
+// A simple ring tone + vibration pattern. Browsers may keep audio silent until
+// the user has interacted with the page; the overlay and vibration still show.
+function startRinging() {
+  stopRinging();
+  try { navigator.vibrate?.([600, 300, 600, 300, 600]); } catch { /* unsupported */ }
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    ringAudio = new Ctx();
+    const beep = () => {
+      if (!ringAudio) return;
+      const g = ringAudio.createGain();
+      g.gain.value = 0.25;
+      g.connect(ringAudio.destination);
+      for (const [f, t] of [[880, 0], [660, 0.35]]) {
+        const o = ringAudio.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = f;
+        o.connect(g);
+        o.start(ringAudio.currentTime + t);
+        o.stop(ringAudio.currentTime + t + 0.3);
+      }
+    };
+    beep();
+    ringTimer = setInterval(() => { beep(); try { navigator.vibrate?.([600, 300, 600]); } catch { /* ignore */ } }, 2500);
+  } catch { /* no audio */ }
+}
+
+function stopRinging() {
+  clearInterval(ringTimer);
+  ringTimer = null;
+  try { navigator.vibrate?.(0); } catch { /* ignore */ }
+  ringAudio?.close().catch(() => {});
+  ringAudio = null;
+}
+
+/* ---------- ringing: push notifications ("开启来电提醒") ---------- */
+
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  && location.protocol === 'https:';
+
+async function currentPushSubscription() {
+  if (!pushSupported) return null;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return await reg.pushManager.getSubscription();
+  } catch { return null; }
+}
+
+async function updateAlertsUI() {
+  const buttons = [ui.btnAlerts, ui.btnAlertsSetup];
+  if (!pushSupported || !profile.room) {
+    for (const b of buttons) b.classList.add('hidden');
+    // iOS only allows push for apps launched from the Home Screen.
+    ui.alertsHint.textContent = T.alertsIosHint;
+    ui.alertsHint.classList.toggle('hidden', !(isIOS && !isStandalone && profile.room));
+    return;
+  }
+  ui.alertsHint.classList.add('hidden');
+  const sub = await currentPushSubscription();
+  const on = !!sub && Notification.permission === 'granted';
+  for (const b of buttons) {
+    b.textContent = on ? T.alertsOn : T.alertsEnable;
+    b.classList.toggle('on', on);
+    b.classList.remove('hidden');
+  }
+}
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function enableCallAlerts() {
+  try {
+    const cfg = await fetch('push/config', { cache: 'no-store' }).then((r) => r.json());
+    if (!cfg.enabled) { toast(T.alertsFailed); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast(T.alertsDenied, 6000); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription()
+      || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(cfg.publicKey) });
+    const res = await fetch('push/subscribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ room: profile.room, key: profile.key || '', name: profile.name, device: profile.device, subscription: sub }),
+    });
+    if (!res.ok) throw new Error(`subscribe ${res.status}`);
+    toast(T.alertsOn);
+  } catch (err) {
+    console.warn('call alerts failed', err);
+    toast(T.alertsFailed, 6000);
+  }
+  updateAlertsUI();
 }
 
 /* ---------- media ---------- */
@@ -194,6 +341,8 @@ document.addEventListener('visibilitychange', () => {
 async function joinCall() {
   if (state.inCall) return;
   state.inCall = true;
+  hideIncoming();
+  stopPresence();
   // The AudioContext must be created inside the tap handler on iOS.
   state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   captions.clear();
@@ -220,7 +369,7 @@ async function joinCall() {
   sig.onopen = () => {
     sig.send({
       type: 'join', room: profile.room, name: profile.name, lang: profile.lang,
-      key: profile.key || '', stt: profile.stt || '',
+      key: profile.key || '', stt: profile.stt || '', device: profile.device,
     });
   };
   sig.onclose = () => {
@@ -452,6 +601,10 @@ ui.btnInviteCall.addEventListener('click', () => copyLink(roomLink(), T.inviteCo
 captions.onCopy = (text) => copyLink(text, T.capCopied); // tap a caption bubble to copy it
 
 ui.quickJoin.addEventListener('click', () => joinCall());
+ui.btnAlerts.addEventListener('click', enableCallAlerts);
+ui.btnAlertsSetup.addEventListener('click', enableCallAlerts);
+ui.btnAnswer.addEventListener('click', () => joinCall());
+ui.btnIgnore.addEventListener('click', hideIncoming);
 ui.quickSettings.addEventListener('click', () => {
   fillForm();
   show(ui.setup);
@@ -563,5 +716,11 @@ applyFont();
 setSttStatus(null);
 idleScreen();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(() => updateAlertsUI()).catch(() => {});
+}
+// Opened from a "xx 来电" notification: show the answer screen right away
+// (the presence connection cancels it if the caller already hung up).
+{
+  const q = new URLSearchParams(location.search);
+  if (q.get('ring') === '1' && profile.room) showIncoming(q.get('from') || '');
 }

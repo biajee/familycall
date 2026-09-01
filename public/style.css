@@ -113,3 +113,15 @@ button { font: inherit; cursor: pointer; }
   background: #000000dd; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 18px; z-index: 10;
   text-align: center;
 }
+
+/* Incoming call ("ringing") overlay */
+#incoming {
+  position: fixed; inset: 0; z-index: 20; background: #0b1220f2;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+#incoming .card { width: 100%; max-width: 420px; text-align: center; }
+#incoming .from { font-size: 34px; font-weight: 700; margin-bottom: 28px; animation: ringpulse 0.9s infinite alternate; }
+@keyframes ringpulse { to { opacity: 0.5; transform: scale(0.97); } }
+#incoming .primary.huge { margin: 0 0 12px; }
+#btnAlerts, #btnAlertsSetup { font-size: 18px; }
+#btnAlerts.on, #btnAlertsSetup.on { color: var(--accent); border-color: var(--accent); }

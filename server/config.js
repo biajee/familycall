@@ -41,6 +41,7 @@ export function loadConfig(env = process.env) {
           : env.FUNASR_URL ? 'funasr' : 'mock');
   return {
     root: ROOT,
+    dataDir: env.DATA_DIR || resolve(ROOT, 'data'),
     host: env.HOST || '127.0.0.1',
     port: Number(env.PORT ?? 8080),
     logLevel: env.LOG_LEVEL || 'info',
@@ -71,6 +72,11 @@ export function loadConfig(env = process.env) {
     },
     funasr: {
       url: env.FUNASR_URL || '', // e.g. ws://127.0.0.1:10095 (self-hosted, see README)
+    },
+    vapid: {
+      publicKey: env.VAPID_PUBLIC_KEY || '',
+      privateKey: env.VAPID_PRIVATE_KEY || '',
+      subject: env.VAPID_SUBJECT || 'mailto:admin@example.com',
     },
     stunUrls: list(env.STUN_URLS),
     turnUrls: list(env.TURN_URLS),
