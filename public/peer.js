@@ -4,7 +4,7 @@
  * tracks / renegotiate at any time without offer collisions.
  */
 export class Call {
-  constructor({ polite, iceServers, localStream, sendSignal, onRemoteStream, onConnectionState, maxVideoKbps = 700 }) {
+  constructor({ polite, iceServers, localStream, sendSignal, onRemoteStream, onConnectionState, maxVideoKbps = 2000 }) {
     this.polite = polite;
     this.sendSignal = sendSignal;
     this.makingOffer = false;
@@ -18,6 +18,7 @@ export class Call {
     this.pc = pc;
 
     for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+    this._preferCodecs();
 
     pc.ontrack = ({ track }) => {
       this.remoteStream.addTrack(track);
@@ -82,6 +83,22 @@ export class Call {
     }
   }
 
+  /** Prefer H.264: phones encode it in hardware (sharper per bit, less heat) and every browser decodes it. */
+  _preferCodecs() {
+    try {
+      const caps = RTCRtpSender.getCapabilities?.('video')?.codecs;
+      if (!caps) return;
+      const h264 = caps.filter((c) => /h264/i.test(c.mimeType));
+      if (!h264.length) return;
+      const rest = caps.filter((c) => !/h264/i.test(c.mimeType));
+      for (const t of this.pc.getTransceivers()) {
+        if (t.sender.track?.kind === 'video' && t.setCodecPreferences) t.setCodecPreferences([...h264, ...rest]);
+      }
+    } catch (err) {
+      console.warn('codec preference failed', err);
+    }
+  }
+
   async _applyBitrate() {
     for (const sender of this.pc.getSenders()) {
       if (sender.track?.kind !== 'video') continue;
@@ -89,6 +106,8 @@ export class Call {
         const params = sender.getParameters();
         if (!params.encodings || !params.encodings.length) params.encodings = [{}];
         params.encodings[0].maxBitrate = this.maxVideoKbps * 1000;
+        // A talking face reads better sharp at a lower frame rate than smooth and blurry.
+        params.degradationPreference = 'maintain-resolution';
         await sender.setParameters(params);
       } catch (err) {
         console.warn('setParameters failed', err);

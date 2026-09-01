@@ -86,21 +86,24 @@ video.mirror { transform: scaleX(-1); }
 .cap.fadeout { opacity: 0; }
 .cap .txt { word-break: break-word; min-width: 0; }
 .cap-peer { margin-right: 15%; }
+.cap-peer .txt { color: #ffd54f; } /* the other side: yellow */
 .cap-self { align-self: flex-end; margin-left: 15%; }
+.cap-self .txt { color: #fff; }    /* me: white */
 .cap .del {
   flex: none; border: 0; padding: 0; width: 1.15em; height: 1.15em; border-radius: 50%;
   background: var(--danger); color: #fff; font-size: 0.75em; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
-.cap.interim .txt { color: #f2f5fa; }
+.cap.interim .txt { opacity: 0.85; }
 #controls {
   position: relative; z-index: 1;
-  display: flex; gap: 6px; padding: 8px 8px max(10px, env(safe-area-inset-bottom));
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px max(10px, env(safe-area-inset-bottom));
 }
 #controls button {
-  flex: 1; font-size: 26px; padding: 12px 0; border-radius: 12px; border: 0;
+  flex: 1 1 17%; font-size: 26px; padding: 10px 0; border-radius: 12px; border: 0;
   background: #00000073; color: #fff; min-width: 0;
 }
+#controls button:disabled { opacity: 0.35; }
 #controls button.active { background: var(--warn); color: #000; }
 #controls button.danger { background: var(--danger); }
 #settingsPanel {
@@ -110,9 +113,9 @@ video.mirror { transform: scaleX(-1); }
 #settingsPanel label { display: block; margin: 10px 0; font-size: 17px; }
 #settingsPanel .primary { margin-top: 12px; padding: 12px; font-size: 19px; }
 #toast {
-  position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); max-width: 90%;
-  background: #000000dd; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 18px; z-index: 10;
-  text-align: center;
+  position: fixed; top: max(14px, env(safe-area-inset-top)); left: 12px; right: calc(26% + 24px);
+  background: #000000dd; color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 18px; z-index: 10;
+  text-align: left;
 }
 
 /* Incoming call ("ringing") overlay */

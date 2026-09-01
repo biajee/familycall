@@ -138,6 +138,7 @@ export function createApp(cfg, deps = {}) {
       polite: false,
       stt: null,
       sttChoice: '', // '' = server default provider
+      sttPrev: '', // choice to restore when the other side turns our captions back on
       nextSeg: 0,
       device: '', // per-phone id from the app (localStorage); excludes the caller from its own ring
       listening: null, // room this idle phone wants to be rung for
@@ -249,6 +250,7 @@ export function createApp(cfg, deps = {}) {
     if (typeof msg.stt === 'string') {
       const choice = validChoice(msg.stt) ? msg.stt : '';
       if (choice !== client.sttChoice) {
+        if (choice === 'off') client.sttPrev = client.sttChoice;
         client.sttChoice = choice;
         client.closeStt(choice === 'off' ? 'captions off' : 'provider changed');
         // The new provider may use a different audio rate (or be "off"): tell the phone.
@@ -256,6 +258,25 @@ export function createApp(cfg, deps = {}) {
       }
     }
     if (client.room) broadcast(client.room, { type: 'peer-updated', peer: publicPeer(client) }, client);
+  }
+
+  /** Either side can switch the OTHER phone's transcription off/on (e.g. the caller
+   *  hears Dad fine and does not need his speech transcribed). */
+  function onPeerStt(client, msg) {
+    if (!client.room) return;
+    const peer = rooms.members(client.room).find((p) => p !== client);
+    if (!peer) return;
+    const off = !!msg.off;
+    if (off && peer.sttChoice !== 'off') {
+      peer.sttPrev = peer.sttChoice;
+      peer.sttChoice = 'off';
+      peer.closeStt('captions turned off by peer');
+      send(peer, { type: 'stt-info', stt: sttInfoFor(peer), by: 'peer' });
+    } else if (!off && peer.sttChoice === 'off') {
+      peer.sttChoice = peer.sttPrev || '';
+      send(peer, { type: 'stt-info', stt: sttInfoFor(peer), by: 'peer' });
+    }
+    send(client, { type: 'peer-updated', peer: publicPeer(peer) });
   }
 
   function onAudio(client, buf) {
@@ -289,6 +310,7 @@ export function createApp(cfg, deps = {}) {
       switch (msg.type) {
         case 'join': return onJoin(client, msg);
         case 'listen': return onListen(client, msg);
+        case 'peer-stt': return onPeerStt(client, msg);
         case 'signal': return onSignal(client, msg);
         case 'update': return onUpdate(client, msg);
         case 'leave': return doLeave(client);

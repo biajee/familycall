@@ -84,9 +84,9 @@ test('join / signal / captions / leave flow', async () => {
   b.send({ type: 'join', room: 'fam', name: '爸爸', lang: 'zh-CN', key: 'pw' });
   const jb = await b.until('joined');
   assert.equal(jb.polite, true);
-  assert.deepEqual(jb.peers, [{ id: ja.id, name: '女儿', lang: 'en-US' }]);
+  assert.deepEqual(jb.peers, [{ id: ja.id, name: '女儿', lang: 'en-US', captions: true }]);
   const pj = await a.until('peer-joined');
-  assert.deepEqual(pj.peer, { id: jb.id, name: '爸爸', lang: 'zh-CN' });
+  assert.deepEqual(pj.peer, { id: jb.id, name: '爸爸', lang: 'zh-CN', captions: true });
   assert.equal(pj.polite, false);
 
   // signaling relay
@@ -135,6 +135,18 @@ test('join / signal / captions / leave flow', async () => {
   await assert.rejects(b.until('caption', 700), /timeout/, 'no captions while off');
   a.send({ type: 'update', stt: 'mock' });
   assert.equal((await a.until('stt-info')).stt.name, 'mock');
+
+  // either side can switch the other phone's transcription off and back on
+  a.send({ type: 'peer-stt', off: true });
+  const offInfo = await b.until('stt-info');
+  assert.equal(offInfo.stt.name, 'off');
+  assert.equal(offInfo.by, 'peer');
+  let pu = await a.until('peer-updated');
+  assert.equal(pu.peer.captions, false);
+  a.send({ type: 'peer-stt', off: false });
+  assert.equal((await b.until('stt-info')).stt.name, 'mock');
+  pu = await a.until('peer-updated');
+  assert.equal(pu.peer.captions, true);
 
   // third participant is rejected
   const c = client();

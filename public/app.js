@@ -37,6 +37,8 @@ const ui = {
   selProvider: $('#selProvider'),
   selLang: $('#selLang'),
   btnCloseSettings: $('#btnCloseSettings'),
+  btnMyStt: $('#btnMyStt'),
+  btnPeerStt: $('#btnPeerStt'),
   btnAlerts: $('#btnAlerts'),
   btnAlertsSetup: $('#btnAlertsSetup'),
   alertsHint: $('#alertsHint'),
@@ -68,6 +70,7 @@ const state = {
   wakeLock: null,
   connectionState: 'new',
   sttOk: null,
+  sttOff: false, // my transcription is currently off (by me or by the other side)
   sttProviders: [],
 };
 
@@ -313,14 +316,19 @@ async function enableCallAlerts() {
 
 async function getMedia() {
   const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  // 720p (phones deliver it portrait-oriented) instead of 640x480: the big
+  // window fills a portrait screen, so a small landscape frame gets upscaled
+  // and looks soft. WebRTC still scales down when the link cannot carry it.
   const video = {
     facingMode: state.facing,
-    width: { ideal: 640 },
-    height: { ideal: 480 },
-    frameRate: { ideal: 20, max: 24 },
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 24, max: 30 },
   };
   try {
-    return await navigator.mediaDevices.getUserMedia({ audio, video });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio, video });
+    for (const t of stream.getVideoTracks()) t.contentHint = 'detail';
+    return stream;
   } catch (err) {
     console.warn('video capture failed, falling back to audio only:', err);
     toast(T.mediaAudioOnly);
@@ -463,6 +471,7 @@ function handleMessage(msg) {
       break;
     case 'peer-updated':
       if (state.peer && msg.peer.id === state.peer.id) state.peer = msg.peer;
+      updateSttButtons();
       break;
     case 'peer-left':
       if (state.peer && msg.id === state.peer.id) onPeerLeft();
@@ -479,6 +488,7 @@ function handleMessage(msg) {
     case 'stt-info':
       // Provider switched server-side (or captions turned off): re-capture as needed.
       applySttInfo(msg.stt);
+      if (msg.by === 'peer') toast(msg.stt.name === 'off' ? T.captionsOffByPeer : T.captionsOnByPeer, 5000);
       break;
     case 'error':
       console.warn('server error', msg);
@@ -493,6 +503,7 @@ function handleMessage(msg) {
 function onPeerJoined(peer, polite) {
   state.peer = peer;
   state.polite = polite;
+  updateSttButtons();
   teardownPeer();
   setStatus(T.connecting);
   state.call = new Call({
@@ -522,6 +533,7 @@ function onPeerJoined(peer, polite) {
 function onPeerLeft() {
   teardownPeer();
   state.peer = null;
+  updateSttButtons();
   setStatus(`${T.peerLeft} · ${T.waitingPeer}`);
 }
 
@@ -535,8 +547,18 @@ function teardownPeer() {
   applyVideoLayout();
 }
 
+function updateSttButtons() {
+  ui.btnMyStt.classList.toggle('active', state.sttOff);
+  ui.btnMyStt.textContent = state.sttOff ? '💬' : '💬';
+  const peerOff = !!state.peer && state.peer.captions === false;
+  ui.btnPeerStt.disabled = !state.peer;
+  ui.btnPeerStt.classList.toggle('active', peerOff);
+}
+
 function applySttInfo(info) {
   state.stt = info;
+  state.sttOff = info.name === 'off';
+  updateSttButtons();
   if (info.name === 'off') {
     stopCapture(); // nothing is sent to any transcription service
     setSttStatus(null, '', 'off');
@@ -694,7 +716,7 @@ ui.btnFlip.addEventListener('click', async () => {
   state.facing = state.facing === 'user' ? 'environment' : 'user';
   try {
     const s = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact: state.facing }, width: { ideal: 640 }, height: { ideal: 480 } },
+      video: { facingMode: { exact: state.facing }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } },
     });
     const track = s.getVideoTracks()[0];
     track.enabled = !state.camOff;
@@ -717,6 +739,26 @@ function changeFont(delta) {
   applyFont();
 }
 ui.btnFontUp.addEventListener('click', () => changeFont(4));
+
+// 💬 my transcription on/off (remembered like the settings picker);
+// 🗨️ the other phone's transcription on/off, applied by the server.
+ui.btnMyStt.addEventListener('click', () => {
+  if (state.sttOff) {
+    if (profile.stt === 'off') profile.stt = profile.sttPrev || '';
+  } else {
+    profile.sttPrev = profile.stt;
+    profile.stt = 'off';
+  }
+  saveProfile();
+  state.signaling?.send({ type: 'update', stt: profile.stt });
+  toast(state.sttOff ? T.myCaptionsOn : T.myCaptionsOff);
+});
+ui.btnPeerStt.addEventListener('click', () => {
+  if (!state.peer) return;
+  const off = state.peer.captions !== false; // currently on -> turn off
+  state.signaling?.send({ type: 'peer-stt', off });
+  toast(off ? T.peerCaptionsOff : T.peerCaptionsOn);
+});
 ui.btnFontDown.addEventListener('click', () => changeFont(-4));
 
 ui.btnHangup.addEventListener('click', () => {

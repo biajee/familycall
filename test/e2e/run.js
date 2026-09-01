@@ -113,6 +113,12 @@ try {
   if (aligns.self !== 'flex-end') fail(`B own captions should align right, got "${aligns.self}"`);
   if (!(aligns.peerGap > 20)) fail(`peer bubble should keep a right margin, got ${aligns.peerGap}px`);
   if (!(aligns.selfGap > 20)) fail(`self bubble should keep a left margin, got ${aligns.selfGap}px`);
+  const colors = await b.evaluate(() => ({
+    peer: getComputedStyle(document.querySelector('#captions .cap-peer .txt')).color,
+    self: getComputedStyle(document.querySelector('#captions .cap-self .txt')).color,
+  }));
+  if (colors.peer !== 'rgb(255, 213, 79)') fail(`incoming text should be yellow, got ${colors.peer}`);
+  if (colors.self !== 'rgb(255, 255, 255)') fail(`own text should be white, got ${colors.self}`);
 
   // Tap a bubble -> the copy handler receives its text.
   await b.evaluate(() => {
@@ -182,6 +188,19 @@ try {
   const muted = await a.evaluate(() => window.__familycall.state.localStream.getAudioTracks()[0].enabled === false);
   if (!muted) fail('mute did not disable the audio track');
   await a.click('#btnMute');
+
+  // 💬 / 🗨️: toggle my own transcription, and the other phone's, from the controls bar.
+  await a.click('#btnPeerStt');
+  await b.waitForFunction(() => window.__familycall.state.stt?.name === 'off' && window.__familycall.state.capture === null, { timeout: 5000 });
+  await a.waitForFunction(() => document.getElementById('btnPeerStt').classList.contains('active'), { timeout: 5000 });
+  await a.click('#btnPeerStt');
+  await b.waitForFunction(() => window.__familycall.state.stt?.name === 'mock' && window.__familycall.state.capture !== null, { timeout: 5000 });
+  await a.click('#btnMyStt');
+  await a.waitForFunction(() => window.__familycall.state.sttOff && window.__familycall.state.capture === null, { timeout: 5000 });
+  await b.waitForFunction(() => window.__familycall.state.peer?.captions === false, { timeout: 5000 });
+  await a.click('#btnMyStt');
+  await a.waitForFunction(() => !window.__familycall.state.sttOff && window.__familycall.state.capture !== null, { timeout: 5000 });
+  console.log('A: caption toggles for self and for the other side work');
 
   // In-call settings: provider picker lists the server's providers; switching re-captures.
   await a.click('#btnSettings');

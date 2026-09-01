@@ -157,7 +157,9 @@ Starting a call rings the other phone in two ways:
 
 The server needs VAPID keys (`setup-vps.sh` generates them into `.env`); subscriptions are kept in `data/`.
 
-In-call buttons: 🔗 copy room link · 🎤 mute · 📷 camera off · 🔄 front/back camera · A− / A+ caption size · 📵 hang up.
+In-call buttons: 🔗 copy room link · 🎤 mute · 📷 camera off · 🔄 front/back camera · 💬 my captions on/off ·
+🗨️ the other side's captions on/off (e.g. turn off Dad's transcription when you can hear him fine) · A− / A+ caption
+size · ⚙️ settings · 📵 hang up.
 The dot above the captions is green when the caption service is connected.
 
 ## Self-hosted FunASR
@@ -212,8 +214,9 @@ See [`.env.example`](.env.example) for every option. The important ones:
 * Cross-border UDP is sometimes throttled. The app offers `turn:` UDP, `turn:` TCP and `turns:` TLS (port 5349)
   and the browser picks whichever works. If calls still fail to connect, the classic fix is running the TLS
   TURN listener on port **443** on a second IP or a separate VPS, which looks like ordinary HTTPS traffic.
-* Video is capped at ~700 kbps / 640×480 / 20 fps to survive lossy international links; audio (and therefore
-  captions) has priority. Use the 📷 button to go audio-only on a bad connection — captions keep working.
+* Video is captured at 720p (portrait on phones) and capped at ~2 Mbps / 30 fps, preferring H.264 (hardware
+  encoders) and keeping resolution rather than frame rate when bandwidth drops; WebRTC scales down automatically
+  on lossy international links. Audio (and therefore captions) has priority. Use the 📷 button to go audio-only on a bad connection — captions keep working.
 * Dad's phone sends its mic audio to the server for *his* captions. If his upload is poor, that only delays his
   own captions on the daughter's screen; her captions on his screen are unaffected.
 * The server keeps no recordings: audio is streamed to the STT provider and discarded; captions are not stored.

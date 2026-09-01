@@ -51,7 +51,7 @@ export class Rooms {
 }
 
 export function publicPeer(p) {
-  return { id: p.id, name: p.name, lang: p.lang };
+  return { id: p.id, name: p.name, lang: p.lang, captions: p.sttChoice !== 'off' };
 }
 
 export function sanitizeName(n) {
