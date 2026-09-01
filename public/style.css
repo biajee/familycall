@@ -97,11 +97,11 @@ video.mirror { transform: scaleX(-1); }
 .cap.interim .txt { opacity: 0.85; }
 #controls {
   position: relative; z-index: 1;
-  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px max(10px, env(safe-area-inset-bottom));
+  display: flex; flex-wrap: nowrap; gap: 4px; padding: 6px 6px max(8px, env(safe-area-inset-bottom));
 }
 #controls button {
-  flex: 1 1 17%; font-size: 26px; padding: 10px 0; border-radius: 12px; border: 0;
-  background: #00000073; color: #fff; min-width: 0;
+  flex: 1 1 0; font-size: 18px; padding: 9px 0; border-radius: 10px; border: 0;
+  background: #00000073; color: #fff; min-width: 0; line-height: 1.2;
 }
 #controls button:disabled { opacity: 0.35; }
 #controls button.active { background: var(--warn); color: #000; }
