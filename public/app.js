@@ -63,6 +63,8 @@ const state = {
   muted: false,
   camOff: false,
   facing: 'user',
+  remoteStream: null,
+  swapped: false, // small window tapped: local video in the big window, remote in the small one
   wakeLock: null,
   connectionState: 'new',
   sttOk: null,
@@ -336,6 +338,65 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.inCall && !state.wakeLock) requestWakeLock();
 });
 
+/* ---------- video windows: swap on tap, drag the small one ---------- */
+
+// Both <video> elements are fixed in the layout (big / small); which stream
+// each shows depends on state.swapped. The element showing the local camera
+// stays muted (no echo) and mirrored when the front camera is used.
+function applyVideoLayout() {
+  const localEl = state.swapped ? ui.remoteVideo : ui.localVideo;
+  const remoteEl = state.swapped ? ui.localVideo : ui.remoteVideo;
+  if (localEl.srcObject !== state.localStream) localEl.srcObject = state.localStream;
+  if (remoteEl.srcObject !== state.remoteStream) remoteEl.srcObject = state.remoteStream;
+  localEl.muted = true;
+  remoteEl.muted = false;
+  localEl.classList.toggle('mirror', state.facing === 'user');
+  remoteEl.classList.remove('mirror');
+  if (state.remoteStream) remoteEl.play().catch(() => toast(T.tapToPlay, 6000));
+  if (state.localStream) localEl.play().catch(() => {});
+}
+
+function swapVideos() {
+  state.swapped = !state.swapped;
+  applyVideoLayout();
+}
+
+// Drag the small window anywhere over the video; a tap (no movement) swaps.
+function makeDraggable(el, area, onTap) {
+  let id = null;
+  let sx = 0; let sy = 0; let ox = 0; let oy = 0; let moved = false;
+  el.addEventListener('pointerdown', (e) => {
+    id = e.pointerId;
+    sx = e.clientX; sy = e.clientY;
+    const r = el.getBoundingClientRect();
+    const a = area.getBoundingClientRect();
+    ox = r.left - a.left; oy = r.top - a.top;
+    moved = false;
+    el.setPointerCapture?.(id);
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (id === null || e.pointerId !== id) return;
+    const dx = e.clientX - sx; const dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 6) return;
+    moved = true;
+    const a = area.getBoundingClientRect();
+    const x = Math.max(0, Math.min(a.width - el.offsetWidth, ox + dx));
+    const y = Math.max(0, Math.min(a.height - el.offsetHeight, oy + dy));
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.right = 'auto';
+  });
+  const end = (e) => {
+    if (id === null || e.pointerId !== id) return;
+    id = null;
+    if (!moved) onTap();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', () => { id = null; });
+}
+makeDraggable(ui.localVideo, $('#videos'), swapVideos);
+
 /* ---------- call lifecycle ---------- */
 
 async function joinCall() {
@@ -347,7 +408,8 @@ async function joinCall() {
   state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   captions.clear();
   setSttStatus(null);
-  ui.remoteVideo.srcObject = null;
+  state.remoteStream = null;
+  applyVideoLayout();
   show(ui.call);
   setStatus(T.gettingMedia);
 
@@ -359,8 +421,7 @@ async function joinCall() {
     leaveCall();
     return;
   }
-  ui.localVideo.srcObject = state.localStream;
-  ui.localVideo.classList.toggle('rear', state.facing === 'environment');
+  applyVideoLayout();
   setStatus(T.connecting);
   requestWakeLock();
 
@@ -440,9 +501,9 @@ function onPeerJoined(peer, polite) {
     localStream: state.localStream,
     sendSignal: (data) => state.signaling.send({ type: 'signal', to: peer.id, data }),
     onRemoteStream: (stream) => {
-      if (ui.remoteVideo.srcObject !== stream) {
-        ui.remoteVideo.srcObject = stream;
-        ui.remoteVideo.play().catch(() => toast(T.tapToPlay, 6000));
+      if (state.remoteStream !== stream) {
+        state.remoteStream = stream;
+        applyVideoLayout();
       }
     },
     onConnectionState: (s) => {
@@ -470,7 +531,8 @@ function teardownPeer() {
     state.call = null;
   }
   state.connectionState = 'new';
-  ui.remoteVideo.srcObject = null;
+  state.remoteStream = null;
+  applyVideoLayout();
 }
 
 function applySttInfo(info) {
@@ -523,7 +585,9 @@ function leaveCall() {
   }
   for (const t of state.localStream?.getTracks() || []) t.stop();
   state.localStream = null;
-  ui.localVideo.srcObject = null;
+  state.remoteStream = null;
+  state.swapped = false;
+  applyVideoLayout();
   state.audioCtx?.close().catch(() => {});
   state.audioCtx = null;
   state.wakeLock?.release().catch(() => {});
@@ -637,8 +701,9 @@ ui.btnFlip.addEventListener('click', async () => {
     state.localStream.removeTrack(old);
     old.stop();
     state.localStream.addTrack(track);
-    ui.localVideo.srcObject = state.localStream;
-    ui.localVideo.classList.toggle('rear', state.facing === 'environment');
+    const localEl = state.swapped ? ui.remoteVideo : ui.localVideo;
+    localEl.srcObject = null; // re-attach so the element picks up the new track
+    applyVideoLayout();
     await state.call?.replaceVideoTrack(track);
   } catch (err) {
     console.warn('camera switch failed', err);
@@ -702,7 +767,10 @@ ui.selLang.addEventListener('change', () => {
 });
 
 // Tapping the video area retries playback (browsers may block un-gestured audio playback).
-ui.remoteVideo.addEventListener('click', () => ui.remoteVideo.play().catch(() => {}));
+ui.remoteVideo.addEventListener('click', () => {
+  ui.remoteVideo.play().catch(() => {});
+  ui.localVideo.play().catch(() => {});
+});
 
 window.addEventListener('pagehide', () => {
   state.signaling?.send({ type: 'leave' });

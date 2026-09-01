@@ -148,6 +148,30 @@ try {
   }
   console.log('A room link:', invite);
 
+  // Small video window: tap swaps the two videos, drag moves it, and it comes back on the second tap.
+  const smallBox = await (await a.$('#localVideo')).boundingBox();
+  await a.click('#localVideo');
+  const swapped = await a.evaluate(() => {
+    const s = window.__familycall.state;
+    return s.swapped && document.getElementById('remoteVideo').srcObject === s.localStream
+      && document.getElementById('localVideo').srcObject === s.remoteStream
+      && document.getElementById('remoteVideo').muted === true && document.getElementById('localVideo').muted === false;
+  });
+  if (!swapped) fail('tapping the small window should swap the videos');
+  await a.mouse.move(smallBox.x + smallBox.width / 2, smallBox.y + smallBox.height / 2);
+  await a.mouse.down();
+  for (let i = 1; i <= 8; i++) await a.mouse.move(smallBox.x + smallBox.width / 2 - i * 20, smallBox.y + smallBox.height / 2 + i * 30);
+  await a.mouse.up();
+  const dragged = await (await a.$('#localVideo')).boundingBox();
+  if (!(dragged.x < smallBox.x - 100 && dragged.y > smallBox.y + 150)) fail(`small window did not move: ${JSON.stringify({ smallBox, dragged })}`);
+  const stillSwapped = await a.evaluate(() => window.__familycall.state.swapped);
+  if (!stillSwapped) fail('a drag must not count as a tap');
+  await a.click('#localVideo');
+  const restored = await a.evaluate(() => !window.__familycall.state.swapped && document.getElementById('remoteVideo').srcObject === window.__familycall.state.remoteStream);
+  if (!restored) fail('second tap should swap the videos back');
+  console.log(`A: small window swap + drag OK (moved to ${Math.round(dragged.x)},${Math.round(dragged.y)})`);
+  await a.screenshot({ path: `${artifacts}/phone-a-pip.png` });
+
   const before = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
   await b.click('#btnFontUp');
   const after = await b.evaluate(() => getComputedStyle(document.getElementById('captions')).fontSize);
