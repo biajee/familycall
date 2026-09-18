@@ -134,6 +134,20 @@ user.id` check — there's no "receiver" concept like ConfirmPO's PO access,
 since the actual call participants (the elderly parent, the family member)
 use plain unguessable links and never sign in.
 
+**Marketing-page CTAs must link to the destination page, never straight
+to `zbackroomSignupUrl()`.** The homepage's two "free" buttons
+(`src/app/page.tsx`) used to do the latter, which meant an already
+signed-in visitor clicking "Create your first room free" was forced
+through the signup page again before ever reaching `/rooms/new`. Fixed
+by linking to `/rooms/new` directly — its own `getCurrentUser()` guard
+already redirects an unauthenticated visitor to *login* (which itself
+offers "New here? Create an account"), so a brand-new visitor still
+reaches signup, just one hop later and without breaking the common case.
+Same pattern ConfirmPO's homepage already used for "Confirm your first
+PO free" → `/new`. `zbackroomSignupUrl()` stays defined in `lib/auth.ts`
+for whenever a flow genuinely wants to force signup specifically, just
+isn't the right choice for a generic "get started" link.
+
 ## Call-server integration contract
 
 These are the only points where this app and the call server

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { zbackroomSignupUrl, zbackroomBillingUrl } from "@/lib/auth";
+import { zbackroomBillingUrl } from "@/lib/auth";
 import { PLANS, PLAN_ORDER, formatPrice } from "@/lib/plan";
 
 export const metadata = {
@@ -26,7 +26,7 @@ export default function MarketingPage() {
             no accounts for them to manage, just a link.
           </p>
           <div className="mkt-cta-row">
-            <Link href={zbackroomSignupUrl("/rooms/new")} className="button">
+            <Link href="/rooms/new" className="button">
               Create your first room free
             </Link>
             <a href="#how-it-works" className="button-secondary">
@@ -137,7 +137,7 @@ export default function MarketingPage() {
                     </li>
                   </ul>
                   <Link
-                    href={plan.priceCents === 0 ? zbackroomSignupUrl("/rooms/new") : zbackroomBillingUrl()}
+                    href={plan.priceCents === 0 ? "/rooms/new" : zbackroomBillingUrl()}
                     className={plan.priceCents === 0 ? "button" : "button-secondary"}
                   >
                     {plan.priceCents === 0 ? "Start free" : `Choose ${plan.label}`}
