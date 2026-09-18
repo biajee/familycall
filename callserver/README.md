@@ -224,15 +224,20 @@ and `FAMILYCALL_INTERNAL_SECRET` (its own secret — generate separately from an
 `INTERNAL_API_SECRET` with `openssl rand -hex 32`, and set the same value in the shell's `.env`) to have this
 server:
 
-* Check a room against the shell before letting a second phone join (`GET
-  /api/internal/validate-room?slug=`) — rejects with `room_unavailable` if the room doesn't exist there, or
-  `quota_exceeded` if the account is over its plan's monthly call minutes.
-* Report each finished call's duration back (`POST /api/internal/call-usage`) so the shell's dashboard and
-  plan-limit checks have real usage data.
+* Check a room against the shell whenever a phone joins (`GET /api/internal/validate-room?slug=`). A room the
+  shell doesn't know is refused (`not_found`). Any known room may call: **calls are unlimited on every plan**.
+  What the shell also returns is how many seconds of live captions the room owner's plan has left this month.
+* Meter live captions against that allowance (`server/captionQuota.js`). Every audio frame that would go to
+  speech-to-text is counted, from both phones. When the allowance hits zero, captions stop on both phones with a
+  one-time `caption_limit` notice and **the call carries on**. The first phone into a room sets the allowance;
+  later joiners don't refill it.
+* Report usage back: each phone's caption seconds when it leaves (`POST /api/internal/caption-usage`, what plans
+  are enforced against) and each finished call's duration (`POST /api/internal/call-usage`, informational).
 
-Leave both empty to keep running exactly as before — any room name works, nothing is reported anywhere. When
-the shell **is** configured but briefly unreachable, this server fails *open* (lets the call through) rather
-than blocking a family member from calling because a billing dashboard hiccupped — see `server/familycall.js`.
+Leave both variables empty to keep running exactly as before — any room name works, captions are unlimited,
+nothing is reported anywhere. When the shell **is** configured but briefly unreachable, this server fails *open*
+(the call goes through, captions unmetered) rather than blocking a family member because a billing dashboard
+hiccupped — see `server/familycall.js`.
 
 ## Notes on the China ↔ USA leg
 
@@ -255,7 +260,8 @@ server/
   index.js        entry point (loads .env, starts the app)
   app.js          HTTP static + WebSocket: rooms, signaling relay, audio ingress, caption broadcast
   rooms.js        room state, 2-peer limit, polite/impolite assignment for perfect negotiation
-  familycall.js   optional FamilyCall shell integration (room check + call-usage reporting)
+  familycall.js   optional FamilyCall shell integration (room check + usage reporting)
+  captionQuota.js live-caption allowance metering (pure logic)
   turn.js         TURN REST credentials (coturn use-auth-secret)
   static.js       static files + per-link web-app manifest
   stt/            transcriber providers: base.js (reconnecting WS), openai.js, deepgram.js, xfyun.js, mock.js

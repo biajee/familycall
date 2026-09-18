@@ -8,7 +8,8 @@ import { createTranscriber, providerInfo, availableProviders } from './stt/index
 import { serveStatic } from './static.js';
 import { createLogger } from './log.js';
 import { createPush } from './push.js';
-import { validateRoom, reportCallUsage } from './familycall.js';
+import { validateRoom, reportCallUsage, reportCaptionUsage } from './familycall.js';
+import { frameSeconds, meterFrame } from './captionQuota.js';
 
 const MAX_AUDIO_FRAME = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -141,6 +142,7 @@ export function createApp(cfg, deps = {}) {
       sttChoice: '', // '' = server default provider
       sttPrev: '', // choice to restore when the other side turns our captions back on
       nextSeg: 0,
+      captionSeconds: 0, // audio this phone sent to STT since it joined its room; reported on leave
       device: '', // per-phone id from the app (localStorage); excludes the caller from its own ring
       listening: null, // room this idle phone wants to be rung for
       alive: true,
@@ -202,6 +204,12 @@ export function createApp(cfg, deps = {}) {
     const remaining = rooms.leave(roomId, client.id);
     for (const p of remaining) send(p, { type: 'peer-left', id: client.id });
     if (remaining.length === 0) cancelRing(roomId); // the caller gave up: stop ringing idle phones
+    // Live-caption usage is what plans limit, and it accrues whenever audio
+    // goes to STT, even while someone waits alone in the room (no 2-peer
+    // "call" yet), so it is reported per phone here rather than with the call.
+    const captionSeconds = Math.round(client.captionSeconds);
+    client.captionSeconds = 0;
+    if (captionSeconds > 0) reportCaptionUsage(cfg, log, { slug: roomId, seconds: captionSeconds });
     // A call is "connected" from the moment the room reaches 2 peers
     // (callStartedAt, set in onJoin below) until either one leaves — report
     // its duration to the FamilyCall shell exactly once, right here.
@@ -227,10 +235,7 @@ export function createApp(cfg, deps = {}) {
     const validation = await validateRoom(cfg, log, roomId);
     if (client.ws.readyState !== WebSocket.OPEN) return; // gone while we were checking
     if (!validation.ok) {
-      const message = validation.reason === 'quota_exceeded'
-        ? "This month's call time is used up — upgrade at familycall.zbackroom.com. / 本月通话时长已用完，请到 familycall.zbackroom.com 升级。"
-        : 'This call link is no longer valid. / 此通话链接已失效。';
-      return sendError(client, validation.reason || 'room_unavailable', message);
+      return sendError(client, validation.reason || 'room_unavailable', 'This call link is no longer valid. / 此通话链接已失效。');
     }
 
     if (client.room) doLeave(client);
@@ -242,6 +247,17 @@ export function createApp(cfg, deps = {}) {
     const r = rooms.join(roomId, client);
     if (!r.ok) return sendError(client, r.code, r.code === 'room_full' ? 'Room is full' : r.code);
     client.room = roomId;
+    if (r.others.length === 0) {
+      // First phone in: the room's caption allowance starts here. Later
+      // joiners must NOT overwrite it — the shell only learns about the first
+      // phone's usage when it leaves, so a fresh answer would hand back time
+      // that has already been spent.
+      const room = rooms.get(roomId);
+      if (room) {
+        room.captionSecondsRemaining = validation.captionSecondsRemaining;
+        room.captionLimitNotified = false;
+      }
+    }
     if (r.others.length === 1) {
       // This join brings the room to 2 peers: the call is now actually
       // connected. rooms.js stays "pure logic, no I/O" — this timestamp is
@@ -315,9 +331,25 @@ export function createApp(cfg, deps = {}) {
     send(client, { type: 'peer-updated', peer: publicPeer(peer) });
   }
 
+  /** The room owner's plan has no live-caption time left this month. The call itself carries on. */
+  function captionLimitReached(client, room) {
+    client.closeStt('caption limit');
+    if (!room || room.captionLimitNotified) return;
+    room.captionLimitNotified = true;
+    log.info(`[${client.id}] room "${client.room}" is out of live-caption time`);
+    for (const p of rooms.members(client.room)) {
+      p.closeStt('caption limit');
+      sendError(p, 'caption_limit', "Live captions for this month are used up (the call is not affected) — upgrade at familycall.zbackroom.com. / 本月字幕时长已用完（通话不受影响），请到 familycall.zbackroom.com 升级。");
+    }
+  }
+
   function onAudio(client, buf) {
     if (!client.room || buf.length === 0 || buf.length > MAX_AUDIO_FRAME) return;
     if (client.sttChoice === 'off') return; // captions turned off by this phone
+    const room = rooms.get(client.room);
+    const seconds = frameSeconds(buf.length, sttInfoFor(client).audioRate);
+    const metered = meterFrame(room?.captionSecondsRemaining, seconds);
+    if (!metered.allowed) return captionLimitReached(client, room);
     if (!client.stt) {
       try {
         client.stt = new CaptionStream(client);
@@ -327,6 +359,10 @@ export function createApp(cfg, deps = {}) {
         return;
       }
     }
+    // Counted only once the frame is really going to STT, so a transcriber
+    // that fails to start doesn't burn the allowance.
+    if (room) room.captionSecondsRemaining = metered.remaining;
+    client.captionSeconds += seconds;
     client.stt.write(buf);
   }
 
