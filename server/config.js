@@ -46,6 +46,17 @@ export function loadConfig(env = process.env) {
     port: Number(env.PORT ?? 8080),
     logLevel: env.LOG_LEVEL || 'info',
     roomKey: env.ROOM_KEY || '',
+    // FamilyCall shell app (separate Next.js app, familycall.zbackroom.com)
+    // — room ownership/plan-quota checks and call-usage reporting. A
+    // deliberately different secret from any zbackroom-suite
+    // INTERNAL_API_SECRET: this server takes arbitrary inbound WebSocket
+    // connections from the open internet, a bigger attack surface than any
+    // app-to-app call in that suite. Empty shellUrl = legacy/local mode
+    // (no shell configured), see server/familycall.js.
+    familycall: {
+      shellUrl: env.FAMILYCALL_SHELL_URL || '',
+      secret: env.FAMILYCALL_INTERNAL_SECRET || '',
+    },
     sttProvider,
     sttPrompt: env.STT_PROMPT || '',
     sttHotwords: env.STT_HOTWORDS || '', // FunASR hot words, e.g. {"爸爸":20}

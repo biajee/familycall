@@ -493,7 +493,10 @@ function handleMessage(msg) {
     case 'error':
       console.warn('server error', msg);
       toast(T[msg.code] || msg.message || msg.code, 6000);
-      if (['room_full', 'bad_key', 'bad_room'].includes(msg.code)) leaveCall();
+      // room_unavailable/not_found/quota_exceeded come from the optional FamilyCall
+      // shell's room check (server/familycall.js) — same "give up and go back to
+      // setup" treatment as a bad room/key, not just a toast left hanging on the call screen.
+      if (['room_full', 'bad_key', 'bad_room', 'room_unavailable', 'not_found', 'quota_exceeded'].includes(msg.code)) leaveCall();
       break;
     default:
       break;

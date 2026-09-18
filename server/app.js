@@ -8,6 +8,7 @@ import { createTranscriber, providerInfo, availableProviders } from './stt/index
 import { serveStatic } from './static.js';
 import { createLogger } from './log.js';
 import { createPush } from './push.js';
+import { validateRoom, reportCallUsage } from './familycall.js';
 
 const MAX_AUDIO_FRAME = 64 * 1024;
 const HEARTBEAT_MS = 20_000;
@@ -193,17 +194,45 @@ export function createApp(cfg, deps = {}) {
     client.closeStt('leave');
     if (!client.room) return;
     const roomId = client.room;
+    // Captured before rooms.leave() — that call may delete the room from
+    // the Rooms map entirely (last peer out), but this object reference
+    // stays valid either way, which is all callStartedAt below needs.
+    const room = rooms.get(roomId);
     client.room = null;
     const remaining = rooms.leave(roomId, client.id);
     for (const p of remaining) send(p, { type: 'peer-left', id: client.id });
     if (remaining.length === 0) cancelRing(roomId); // the caller gave up: stop ringing idle phones
+    // A call is "connected" from the moment the room reaches 2 peers
+    // (callStartedAt, set in onJoin below) until either one leaves — report
+    // its duration to the FamilyCall shell exactly once, right here.
+    if (room?.callStartedAt) {
+      const startedAt = new Date(room.callStartedAt);
+      const endedAt = new Date();
+      reportCallUsage(cfg, log, {
+        slug: roomId,
+        startedAt,
+        endedAt,
+        seconds: Math.round((endedAt - startedAt) / 1000),
+      });
+      room.callStartedAt = null;
+    }
     log.info(`[${client.id}] left room "${roomId}" (${remaining.length} remaining)`);
   }
 
-  function onJoin(client, msg) {
+  async function onJoin(client, msg) {
     const roomId = sanitizeRoom(msg.room);
     if (!roomId) return sendError(client, 'bad_room', 'Invalid room name');
     if (cfg.roomKey && msg.key !== cfg.roomKey) return sendError(client, 'bad_key', 'Wrong room key');
+
+    const validation = await validateRoom(cfg, log, roomId);
+    if (client.ws.readyState !== WebSocket.OPEN) return; // gone while we were checking
+    if (!validation.ok) {
+      const message = validation.reason === 'quota_exceeded'
+        ? "This month's call time is used up — upgrade at familycall.zbackroom.com. / 本月通话时长已用完，请到 familycall.zbackroom.com 升级。"
+        : 'This call link is no longer valid. / 此通话链接已失效。';
+      return sendError(client, validation.reason || 'room_unavailable', message);
+    }
+
     if (client.room) doLeave(client);
     client.name = sanitizeName(msg.name);
     client.lang = sanitizeLang(msg.lang);
@@ -213,6 +242,13 @@ export function createApp(cfg, deps = {}) {
     const r = rooms.join(roomId, client);
     if (!r.ok) return sendError(client, r.code, r.code === 'room_full' ? 'Room is full' : r.code);
     client.room = roomId;
+    if (r.others.length === 1) {
+      // This join brings the room to 2 peers: the call is now actually
+      // connected. rooms.js stays "pure logic, no I/O" — this timestamp is
+      // just a plain field on the room object, all I/O stays here.
+      const room = rooms.get(roomId);
+      if (room) room.callStartedAt = Date.now();
+    }
     // The peer already in the room becomes impolite; every newcomer is polite (perfect negotiation).
     for (const other of r.others) other.polite = false;
     send(client, {

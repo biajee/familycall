@@ -4,6 +4,12 @@ A self-hosted, one-to-one **video call app with live captions in Mandarin Chines
 family member who is hard of hearing. Everything either person says is transcribed and shown as large text on
 **both** phones, in real time.
 
+This is the call engine behind **FamilyCall** — account creation, billing, and room management now live in a
+separate app, [`familycall`](https://github.com/biajee/familycall) (`familycall.zbackroom.com`), which this
+server optionally checks a room against before allowing a join and reports finished-call durations to (see
+"FamilyCall shell integration" below). This server still runs standalone with zero configuration if you just
+want the original single-family setup — nothing about that path changed.
+
 It was designed around one specific situation — a daughter in the USA calling her father in mainland China — so it
 deliberately avoids every service the Great Firewall blocks (Google STUN, Firebase, App Store distribution to
 China, etc.). Both phones only ever talk to **your own server**.
@@ -207,6 +213,23 @@ See [`.env.example`](.env.example) for every option. The important ones:
 | `ROOM_KEY` | empty | Extra shared secret; phones must include `?key=`. |
 | `HOST` / `PORT` | `127.0.0.1:8080` | Behind Caddy. |
 
+## FamilyCall shell integration
+
+Optional. Set `FAMILYCALL_SHELL_URL` (the `familycall` app's base URL, e.g. `https://familycall.zbackroom.com`)
+and `FAMILYCALL_INTERNAL_SECRET` (its own secret — generate separately from any zbackroom-suite
+`INTERNAL_API_SECRET` with `openssl rand -hex 32`, and set the same value in the shell's `.env`) to have this
+server:
+
+* Check a room against the shell before letting a second phone join (`GET
+  /api/internal/validate-room?slug=`) — rejects with `room_unavailable` if the room doesn't exist there, or
+  `quota_exceeded` if the account is over its plan's monthly call minutes.
+* Report each finished call's duration back (`POST /api/internal/call-usage`) so the shell's dashboard and
+  plan-limit checks have real usage data.
+
+Leave both empty to keep running exactly as before — any room name works, nothing is reported anywhere. When
+the shell **is** configured but briefly unreachable, this server fails *open* (lets the call through) rather
+than blocking a family member from calling because a billing dashboard hiccupped — see `server/familycall.js`.
+
 ## Notes on the China ↔ USA leg
 
 * **Never depend on Google/Firebase** for anything in the call path; `stun.l.google.com` is blocked. Your coturn
@@ -228,6 +251,7 @@ server/
   index.js        entry point (loads .env, starts the app)
   app.js          HTTP static + WebSocket: rooms, signaling relay, audio ingress, caption broadcast
   rooms.js        room state, 2-peer limit, polite/impolite assignment for perfect negotiation
+  familycall.js   optional FamilyCall shell integration (room check + call-usage reporting)
   turn.js         TURN REST credentials (coturn use-auth-secret)
   static.js       static files + per-link web-app manifest
   stt/            transcriber providers: base.js (reconnecting WS), openai.js, deepgram.js, xfyun.js, mock.js
