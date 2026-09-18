@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A local, FamilyCall-specific profile for a zbackroom identity. FamilyCall
+// has no login/sessions/passwords of its own — that's zbackroom.com's job
+// (see lib/auth.ts). This id is NOT locally generated; it's always set to
+// match the id zbackroom's /api/internal/validate-session returns, so a
+// signed-in zbackroom user and their FamilyCall rooms/usage are the same
+// record across both apps.
+//
+// plan/planStatus are a synced MIRROR, not the source of truth — billing
+// lives entirely at zbackroom.com, since one subscription applies across
+// every app under it, not per app. Kept here so plan-limit checks and the
+// plan badge don't need an extra network round trip.
+model Account {
+  id         String   @id
+  email      String   @unique
+  plan       String   @default("FREE")
+  planStatus String?
+  createdAt  DateTime @default(now())
+  rooms      Room[]
+}
+
+// One "family pairing" — two people who call each other, e.g. a daughter
+// in the US and her father in China. `slug` is the room's unguessable
+// identifier and IS the shared secret (same spirit as the original
+// single-family app's README: "treat it like a password") — the call
+// server (a separate app, on its own VPS) validates a join against this
+// app's /api/internal/validate-room by slug, so there's no separate
+// per-room key concept to manage on top of it.
+model Room {
+  id           String            @id @default(cuid())
+  accountId    String
+  account      Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  slug         String            @unique
+  label        String?
+  createdAt    DateTime          @default(now())
+  // Soft-delete only, same pattern as ConfirmPO's PurchaseOrder — hides a
+  // room from the dashboard without invalidating a link mid-conversation
+  // for whoever still has it open.
+  deletedAt    DateTime?
+  participants RoomParticipant[]
+  callSessions CallSession[]
+
+  @@index([accountId])
+}
+
+// Exactly two per room, matching MAX_PEERS=2 in the call server's
+// rooms.js — this isn't a hypothetical N-participant model, just the two
+// link configs the original app's README said to "build by hand" (name,
+// spoken language, UI language, simple mode, caption size). The shell
+// builds each participant's shareable call-server URL from these fields;
+// the call server's own URL query-param contract is unchanged.
+model RoomParticipant {
+  id     String  @id @default(cuid())
+  roomId String
+  room   Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  slot   String // "a" | "b"
+  name   String
+  lang   String  @default("zh-CN") // zh-CN | en-US | auto
+  ui     String  @default("zh") // zh | en
+  simple Boolean @default(false)
+  font   Int     @default(30)
+
+  @@unique([roomId, slot])
+}
+
+// One row per finished call, reported by the call server via
+// POST /api/internal/call-usage when a room's peer count drops back below
+// 2. `seconds` is the cost-driving usage metric plan limits are enforced
+// against (see lib/plan.ts) — this app never measures call time itself,
+// it only records what the call server reports.
+model CallSession {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  startedAt DateTime
+  endedAt   DateTime?
+  seconds   Int?
+  createdAt DateTime  @default(now())
+
+  @@index([roomId])
+  @@index([createdAt])
+}
+
+// Operational log for the admin dashboard — bearer-secret API failures,
+// call-server integration errors. Separate from CallSession (user-facing
+// usage data): this is operator-facing, not shown to customers.
+// level: INFO | WARN | ERROR
+// source: "internal-api" | "call-server"
+model AppLog {
+  id        String   @id @default(cuid())
+  level     String
+  source    String
+  message   String
+  meta      String? // JSON-encoded extra context
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level])
+}
+
+// Page-view log for the admin dashboard (surfaced at zbackroom.com/admin
+// via /api/internal/admin-data) — same pattern as zbackroom/ConfirmPO,
+// not shared code, just the same pattern applied a third time.
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  userEmail String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

@@ -1,0 +1,6 @@
+[Unit]
+Description=FamilyCall daily database backup
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /var/www/familycall/deploy/backup.sh

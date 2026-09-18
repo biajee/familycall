@@ -1,0 +1,16 @@
+[Unit]
+Description=FamilyCall (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/var/www/familycall
+EnvironmentFile=/var/www/familycall/.env
+Environment=PORT=3002
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
