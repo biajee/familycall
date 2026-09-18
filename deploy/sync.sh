@@ -6,8 +6,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# callserver/ is the call engine, deployed to its own VPS by its own steps
+# (see callserver/README.md) — it doesn't belong on this box.
 rsync -az --delete \
   --exclude node_modules --exclude .next --exclude .git --exclude .env \
+  --exclude /callserver \
   --exclude 'prisma/*.db' --exclude 'prisma/*.db-journal' \
   --exclude tsconfig.tsbuildinfo \
   ./ zbackroom:/var/www/familycall/

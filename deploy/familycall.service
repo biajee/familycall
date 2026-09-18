@@ -7,7 +7,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/var/www/familycall
 EnvironmentFile=/var/www/familycall/.env
-Environment=PORT=3002
+Environment=PORT=3003
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5

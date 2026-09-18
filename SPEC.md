@@ -219,10 +219,10 @@ setting live at zbackroom.com, not here.
 
 ## Deploy
 
-Same Ubuntu box as zbackroom/ConfirmPO, SSH alias `zbackroom`. This app
+Same Ubuntu box as zbackroom/ConfirmPO/alerty, SSH alias `zbackroom`. This app
 lives at `/var/www/familycall`, runs as systemd service `familycall` on
-port 3002, behind nginx (`deploy/nginx-familycall.conf` proxies
-`familycall.zbackroom.com` → `127.0.0.1:3002`). The call server
+port 3003 (3000 is ConfirmPO, 3001 zbackroom, 3002 alerty), behind nginx (`deploy/nginx-familycall.conf` proxies
+`familycall.zbackroom.com` → `127.0.0.1:3003`). The call server
 (`callserver/`) is a **separate VPS, unchanged deploy, despite now living
 in this repo** — nothing about its Caddy/coturn/systemd setup moves here;
 see `callserver/README.md`'s own "Deploy to the VPS" for that half.

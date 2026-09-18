@@ -11,7 +11,7 @@ function zbackroomUrl(): string {
 }
 
 function appUrl(): string {
-  return process.env.APP_URL || "http://localhost:3002";
+  return process.env.APP_URL || "http://localhost:3003";
 }
 
 // `next` is a path within FamilyCall (e.g. "/app") — turned into an
