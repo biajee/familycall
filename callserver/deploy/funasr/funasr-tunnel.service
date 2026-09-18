@@ -1,0 +1,11 @@
+[Unit]
+Description=Reverse SSH tunnel exposing local FunASR to the call server (vpn2 localhost:10095)
+After=network-online.target funasr-server.service
+
+[Service]
+ExecStart=/usr/bin/ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R 127.0.0.1:10095:127.0.0.1:10095 vpn2
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

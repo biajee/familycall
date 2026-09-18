@@ -1,0 +1,131 @@
+:root {
+  --bg: #0b1220;
+  --panel: #131c31;
+  --panel2: #1f2a44;
+  --fg: #f5f7fb;
+  --muted: #9aa7bf;
+  --accent: #22c55e;
+  --danger: #ef4444;
+  --warn: #facc15;
+  --cap-size: 30px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overscroll-behavior: none; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+    "Microsoft YaHei", "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { height: 100%; height: 100dvh; display: flex; flex-direction: column; }
+.screen {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+}
+.hidden { display: none !important; }
+h1 { font-size: 30px; margin: 8px 0 16px; text-align: center; }
+.hint { color: var(--muted); font-size: 17px; text-align: center; line-height: 1.5; }
+form label { display: block; margin: 14px 0; font-size: 18px; }
+form label.check { display: flex; align-items: center; gap: 10px; }
+form label.check input { width: 24px; height: 24px; margin: 0; }
+input, select {
+  width: 100%; font: inherit; font-size: 20px; padding: 12px; margin-top: 6px;
+  border-radius: 10px; border: 1px solid #2c3a5a; background: var(--panel); color: var(--fg);
+}
+button { font: inherit; cursor: pointer; }
+.primary {
+  display: block; width: 100%; margin-top: 20px; padding: 18px; border: 0; border-radius: 14px;
+  background: var(--accent); color: #04120a; font-size: 24px; font-weight: 700;
+}
+.primary.huge { font-size: 36px; padding: 40px 20px; margin: auto 0; }
+.secondary {
+  display: block; width: 100%; margin-top: 12px; padding: 14px; border-radius: 14px;
+  background: var(--panel); color: var(--fg); border: 1px solid #2c3a5a; font-size: 19px;
+}
+.link { background: none; border: 0; color: var(--muted); font-size: 18px; padding: 16px; }
+#quick { justify-content: center; }
+#quick h1 { font-size: 36px; }
+#quick .hint { font-size: 20px; }
+
+/* Full-screen call: the remote video fills the screen; the caption bar,
+   captions and controls are translucent overlays stacked at the bottom. */
+#call { padding: 0; position: relative; }
+#videos { position: absolute; inset: 0; background: #000; }
+#remoteVideo { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+#localVideo {
+  position: absolute; right: 10px; top: max(10px, env(safe-area-inset-top)); width: 26%; aspect-ratio: 3 / 4;
+  object-fit: cover; border-radius: 10px; border: 1px solid #ffffff66; background: #222;
+  touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none;
+}
+video.mirror { transform: scaleX(-1); }
+#callStatus {
+  position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); max-width: 86%;
+  padding: 12px 18px; background: #000000aa; border-radius: 14px;
+  font-size: 20px; text-align: center;
+}
+#capBar {
+  position: relative; z-index: 1; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; padding: 2px 14px 4px;
+  font-size: 15px; color: #dbe3f0dd; text-shadow: 0 1px 2px #000;
+}
+.dot { width: 12px; height: 12px; border-radius: 50%; background: #64748b; display: inline-block; }
+.dot.ok { background: var(--accent); }
+.dot.bad { background: var(--danger); }
+#captions {
+  position: relative; z-index: 1; margin-top: auto; max-height: 42%; overflow-y: auto;
+  padding: 2px 10px; font-size: var(--cap-size); line-height: 1.12;
+  display: flex; flex-direction: column; gap: 2px; -webkit-overflow-scrolling: touch;
+}
+.cap {
+  background: #000000b0; border-radius: 8px; padding: 2px 8px; color: #fff;
+  width: fit-content; max-width: 85%; align-self: flex-start;
+  transition: opacity 10s ease;
+  display: flex; align-items: center; gap: 6px;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
+}
+.cap.fadeout { opacity: 0; }
+.cap .txt { word-break: break-word; min-width: 0; }
+.cap-peer { margin-right: 15%; }
+.cap-peer .txt { color: #ffd54f; } /* the other side: yellow */
+.cap-self { align-self: flex-end; margin-left: 15%; }
+.cap-self .txt { color: #fff; }    /* me: white */
+.cap .del {
+  flex: none; border: 0; padding: 0; width: 1.15em; height: 1.15em; border-radius: 50%;
+  background: var(--danger); color: #fff; font-size: 0.75em; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.cap.interim .txt { opacity: 0.85; }
+#controls {
+  position: relative; z-index: 1;
+  display: flex; flex-wrap: nowrap; gap: 4px; padding: 6px 6px max(8px, env(safe-area-inset-bottom));
+}
+#controls button {
+  flex: 1 1 0; font-size: 18px; padding: 9px 0; border-radius: 10px; border: 0;
+  background: #00000073; color: #fff; min-width: 0; line-height: 1.2;
+}
+#controls button:disabled { opacity: 0.35; }
+#controls button.active { background: var(--warn); color: #000; }
+#controls button.danger { background: var(--danger); }
+#settingsPanel {
+  position: absolute; left: 6%; right: 6%; bottom: 92px; z-index: 3;
+  background: #0b1220f2; border: 1px solid #2c3a5a; border-radius: 14px; padding: 14px 16px;
+}
+#settingsPanel label { display: block; margin: 10px 0; font-size: 17px; }
+#settingsPanel .primary { margin-top: 12px; padding: 12px; font-size: 19px; }
+#toast {
+  position: fixed; top: max(14px, env(safe-area-inset-top)); left: 12px; right: calc(26% + 24px);
+  background: #000000dd; color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 18px; z-index: 10;
+  text-align: left;
+}
+
+/* Incoming call ("ringing") overlay */
+#incoming {
+  position: fixed; inset: 0; z-index: 20; background: #0b1220f2;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+#incoming .card { width: 100%; max-width: 420px; text-align: center; }
+#incoming .from { font-size: 34px; font-weight: 700; margin-bottom: 28px; animation: ringpulse 0.9s infinite alternate; }
+@keyframes ringpulse { to { opacity: 0.5; transform: scale(0.97); } }
+#incoming .primary.huge { margin: 0 0 12px; }
+#btnAlerts, #btnAlertsSetup { font-size: 18px; }
+#btnAlerts.on, #btnAlertsSetup.on { color: var(--accent); border-color: var(--accent); }

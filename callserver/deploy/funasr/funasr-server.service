@@ -1,0 +1,14 @@
+[Unit]
+Description=FunASR 2-pass streaming speech recognition (websocket :10095)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/funasr
+Environment=MODELSCOPE_CACHE=%h/funasr/models
+Environment=OMP_NUM_THREADS=4
+ExecStart=%h/funasr/venv/bin/python %h/funasr/funasr_wss_server.py --host 127.0.0.1 --port 10095 --device cpu --ngpu 0 --ncpu 4 --certfile "" --keyfile ""
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

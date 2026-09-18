@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="家庭通话">
+<title>家庭通话 · Family Call</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+
+  <section id="setup" class="screen">
+    <h1 data-i18n="appTitle">家庭通话</h1>
+    <form id="setupForm" autocomplete="off">
+      <label><span data-i18n="yourName">我的名字</span><input name="name" maxlength="32" required></label>
+      <label><span data-i18n="room">房间号</span><input name="room" maxlength="64" required pattern="[A-Za-z0-9_\-]{1,64}" autocapitalize="none"></label>
+      <label><span data-i18n="iSpeak">我说的语言</span>
+        <select name="lang">
+          <option value="zh-CN">中文（普通话）</option>
+          <option value="en-US">English</option>
+          <option value="auto" data-i18n="autoLang">自动（中/英）</option>
+        </select>
+      </label>
+      <label><span data-i18n="uiLang">界面语言</span>
+        <select name="ui">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="simple"><span data-i18n="simpleMode">简易模式</span></label>
+      <button type="submit" class="primary big" data-i18n="startCall">开始通话</button>
+      <button type="button" id="btnInvite" class="secondary" data-i18n="inviteCopy">复制房间链接</button>
+      <button type="button" id="btnAlertsSetup" class="secondary hidden"></button>
+    </form>
+    <p class="hint" data-i18n="setupHint"></p>
+  </section>
+
+  <section id="quick" class="screen hidden">
+    <h1 data-i18n="appTitle">家庭通话</h1>
+    <p id="quickInfo" class="hint"></p>
+    <button id="quickJoin" class="primary huge" data-i18n="startCall">开始通话</button>
+    <button id="btnAlerts" class="secondary hidden"></button>
+    <p id="alertsHint" class="hint hidden"></p>
+    <button id="quickSettings" class="link" data-i18n="settings">设置</button>
+  </section>
+
+  <section id="call" class="screen hidden">
+    <div id="videos">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay playsinline muted></video>
+      <div id="callStatus" class="hidden"></div>
+    </div>
+    <div id="captions" aria-live="polite"></div>
+    <div id="capBar"><span id="sttDot" class="dot"></span><span id="capLabel"></span></div>
+    <div id="controls">
+      <button id="btnInviteCall" data-i18n-title="inviteCopy">🔗</button>
+      <button id="btnMute" data-i18n-title="mute">🎤</button>
+      <button id="btnCam" data-i18n-title="camOff">📷</button>
+      <button id="btnFlip" data-i18n-title="flip">🔄</button>
+      <button id="btnMyStt" data-i18n-title="myCaptions">💬</button>
+      <button id="btnPeerStt" data-i18n-title="peerCaptions">🗨️</button>
+      <button id="btnFontDown" data-i18n-title="fontDown">A−</button>
+      <button id="btnFontUp" data-i18n-title="fontUp">A+</button>
+      <button id="btnSettings" data-i18n-title="settings">⚙️</button>
+      <button id="btnHangup" class="danger" data-i18n-title="hangup">📵</button>
+    </div>
+    <div id="settingsPanel" class="hidden">
+      <label><span data-i18n="sttService">字幕识别服务</span>
+        <select id="selProvider"></select>
+      </label>
+      <label><span data-i18n="iSpeak">我说的语言</span>
+        <select id="selLang">
+          <option value="zh-CN">中文（普通话）</option>
+          <option value="en-US">English</option>
+          <option value="auto" data-i18n="autoLang">自动（中/英）</option>
+        </select>
+      </label>
+      <button id="btnCloseSettings" class="primary" data-i18n="done">完成</button>
+    </div>
+  </section>
+
+  <div id="incoming" class="hidden">
+    <div class="card">
+      <div id="incomingFrom" class="from"></div>
+      <button id="btnAnswer" class="primary huge" data-i18n="answer">接听</button>
+      <button id="btnIgnore" class="link" data-i18n="ignore">忽略</button>
+    </div>
+  </div>
+  <div id="toast" class="hidden"></div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
