@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, zbackroomLoginUrl, zbackroomAccountUrl, zbackroomBillingUrl } from "@/lib/auth";
+import { planLabel } from "@/lib/plan";
 
 export default async function AccountPage() {
   const user = await getCurrentUser();
@@ -15,11 +16,11 @@ export default async function AccountPage() {
       <div className="panel">
         <h3 style={{ marginTop: 0 }}>Plan</h3>
         <p style={{ marginBottom: 12 }}>
-          <span className="badge badge-plan">{user.plan}</span>
+          <span className="badge badge-plan">{planLabel(user.plan)}</span>
         </p>
         <p className="muted" style={{ marginBottom: 16 }}>
-          One subscription, managed at zbackroom.com — it applies across every app there, not just
-          FamilyCall.
+          Calls are unlimited on every plan; plans differ in live-caption minutes and rooms.
+          Subscriptions are managed at zbackroom.com, and each app there has its own.
         </p>
         <a className="button-secondary" href={zbackroomBillingUrl()}>
           Manage billing at zbackroom.com

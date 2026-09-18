@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, zbackroomLoginUrl } from "@/lib/auth";
-import { MINUTE_LIMITS, minutesUsedThisMonth } from "@/lib/plan";
+import { getCurrentUser, zbackroomLoginUrl, zbackroomBillingUrl } from "@/lib/auth";
+import { PLAN_ORDER, captionSecondsUsedThisMonth, formatMinutes, planDef } from "@/lib/plan";
 
 function fmt(d: Date): string {
   return new Date(d).toISOString().slice(0, 10);
@@ -12,16 +12,17 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect(zbackroomLoginUrl("/app"));
 
-  const [rooms, minutesUsed] = await Promise.all([
+  const [rooms, secondsUsed] = await Promise.all([
     prisma.room.findMany({
       where: { accountId: user.id, deletedAt: null },
       include: { participants: true },
       orderBy: { createdAt: "desc" },
     }),
-    minutesUsedThisMonth(user.id),
+    captionSecondsUsedThisMonth(user.id),
   ]);
 
-  const limit = user.plan in MINUTE_LIMITS ? MINUTE_LIMITS[user.plan] : MINUTE_LIMITS.FREE;
+  const captionMinutes = planDef(user.plan).captionMinutes;
+  const isTopPlan = user.plan === PLAN_ORDER[PLAN_ORDER.length - 1];
 
   return (
     <main className="container">
@@ -33,9 +34,16 @@ export default async function DashboardPage() {
       </div>
 
       <p className="muted" style={{ marginBottom: 24 }}>
-        {limit === null
-          ? "Unlimited call minutes on your plan."
-          : `${minutesUsed} of ${limit} call minutes used this month.`}
+        Calls are unlimited.{" "}
+        {captionMinutes === null
+          ? "Live captions are unlimited on your plan."
+          : `${formatMinutes(secondsUsed)} of ${captionMinutes} live-caption minutes used this month.`}
+        {!isTopPlan ? (
+          <>
+            {" "}
+            <a href={zbackroomBillingUrl()}>Upgrade</a>
+          </>
+        ) : null}
       </p>
 
       {rooms.length === 0 ? (

@@ -33,18 +33,28 @@ export function zbackroomLogoutUrl(next: string): string {
   return `${zbackroomUrl()}/api/auth/logout?next=${encodeURIComponent(`${appUrl()}${next}`)}`;
 }
 
-// Billing lives at zbackroom.com — one subscription across every app.
+// Billing lives at zbackroom.com. Each app has its own subscription there;
+// ?app=familycall preselects FamilyCall's plans in the checkout.
 export function zbackroomBillingUrl(): string {
-  return `${zbackroomUrl()}/account/billing`;
+  return `${zbackroomUrl()}/account/billing?app=familycall`;
 }
 
-type IdentityResponse = { id: string; email: string; plan?: string; planStatus?: string | null };
+// `plans` is per-app ({ confirmpo: {...}, familycall: {...} }) — this app
+// reads only its own entry. The top-level `plan`/`planStatus` zbackroom also
+// returns are ConfirmPO's (kept for that app's sake) and must NOT be used
+// here.
+type IdentityResponse = {
+  id: string;
+  email: string;
+  plans?: { familycall?: { plan?: string; planStatus?: string | null } };
+};
 
 function accountUpsertData(data: IdentityResponse) {
+  const mine = data.plans?.familycall;
   return {
     email: data.email,
-    plan: data.plan ?? "FREE",
-    planStatus: data.planStatus ?? null,
+    plan: mine?.plan ?? "FREE",
+    planStatus: mine?.planStatus ?? null,
   };
 }
 

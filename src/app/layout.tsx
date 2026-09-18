@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import { getCurrentUser, zbackroomLoginUrl, zbackroomLogoutUrl } from "@/lib/auth";
 import { logPageView } from "@/lib/pageview";
+import { planLabel } from "@/lib/plan";
 
 export const metadata: Metadata = {
   title: "FamilyCall",
@@ -33,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <>
                   <Link href="/app">My Rooms</Link>
                   <Link href="/account" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="badge badge-plan">{user.plan}</span>
+                    <span className="badge badge-plan">{planLabel(user.plan)}</span>
                     <span>{user.email}</span>
                   </Link>
                   <a href={zbackroomLogoutUrl("/")}>Sign out</a>

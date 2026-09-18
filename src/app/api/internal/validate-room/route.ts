@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { minutesRemaining } from "@/lib/plan";
+import { captionSecondsRemaining } from "@/lib/plan";
 
 // Called server-to-server by the call server (a separate app, on its own
-// VPS — see stt_videocall/server/familycall.js) before letting a peer join
-// a room. Bearer-secret pattern, same as every other internal endpoint in
-// the suite, but a DIFFERENT secret from zbackroom/ConfirmPO's
+// VPS — see callserver/server/familycall.js) when a phone joins a room.
+// Bearer-secret pattern, same as every other internal endpoint in the
+// suite, but a DIFFERENT secret from zbackroom/ConfirmPO's
 // INTERNAL_API_SECRET — the call server accepts arbitrary inbound
 // WebSocket connections from the open internet, a materially bigger
 // attack surface, so it shouldn't hold a secret that also protects
 // zbackroom's validate-session/admin-data.
 //
-// 404 means "no such room" (call server should reject the join outright).
-// 200 with ok:false means the room IS real but this month's plan quota is
-// used up — a different, friendlier message than "room not found".
+// 404 means "no such room" (call server rejects the join). Otherwise the
+// room is valid and the call is ALWAYS allowed — calls are unlimited on
+// every plan. What varies is `captionSecondsRemaining`: how many more
+// seconds of live captions the room owner's plan has left this month
+// (null = unlimited). The call server enforces it and stops captions, not
+// the call, when it runs out.
 export async function GET(req: NextRequest) {
   const secret = process.env.FAMILYCALL_INTERNAL_SECRET;
   if (!secret) {
@@ -37,14 +40,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const remaining = await minutesRemaining(room.account);
-  if (remaining !== null && remaining <= 0) {
-    return NextResponse.json({ ok: false, reason: "quota_exceeded" });
-  }
-
   return NextResponse.json({
     ok: true,
     roomId: room.id,
+    captionSecondsRemaining: await captionSecondsRemaining(room.account),
     participants: room.participants.map((p) => ({
       slot: p.slot,
       name: p.name,

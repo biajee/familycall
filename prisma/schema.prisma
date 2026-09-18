@@ -47,6 +47,7 @@ model Room {
   deletedAt    DateTime?
   participants RoomParticipant[]
   callSessions CallSession[]
+  captionUsage CaptionUsage[]
 
   @@index([accountId])
 }
@@ -73,9 +74,10 @@ model RoomParticipant {
 
 // One row per finished call, reported by the call server via
 // POST /api/internal/call-usage when a room's peer count drops back below
-// 2. `seconds` is the cost-driving usage metric plan limits are enforced
-// against (see lib/plan.ts) — this app never measures call time itself,
-// it only records what the call server reports.
+// 2. Purely informational (history on the room page, totals in /admin):
+// calls are unlimited on every plan, so nothing is enforced against this.
+// This app never measures call time itself, it only records what the call
+// server reports.
 model CallSession {
   id        String    @id @default(cuid())
   roomId    String
@@ -84,6 +86,25 @@ model CallSession {
   endedAt   DateTime?
   seconds   Int?
   createdAt DateTime  @default(now())
+
+  @@index([roomId])
+  @@index([createdAt])
+}
+
+// Live-caption usage, reported by the call server via
+// POST /api/internal/caption-usage when a phone leaves a room. `seconds` is
+// audio actually sent to the speech-to-text provider from that phone — the
+// cost-driving metric, and what plan limits ARE enforced against (see
+// lib/plan.ts). Separate from CallSession on purpose: captions can run
+// while someone waits alone in a room (no 2-person "call" exists yet but
+// STT cost is already being incurred), and a call with captions off costs
+// nothing. Summed per account per calendar month.
+model CaptionUsage {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  seconds   Int
+  createdAt DateTime @default(now())
 
   @@index([roomId])
   @@index([createdAt])

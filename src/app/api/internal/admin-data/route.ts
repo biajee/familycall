@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-  const [accounts, totalAccounts, totalRooms, callsThisMonthAgg, recentCalls, logs, pageViews] =
+  const [accounts, totalAccounts, totalRooms, callsThisMonthAgg, captionAgg, recentCalls, logs, pageViews] =
     await Promise.all([
       prisma.account.findMany({
         orderBy: { createdAt: "desc" },
@@ -34,6 +34,10 @@ export async function GET(req: NextRequest) {
       prisma.callSession.aggregate({
         where: { createdAt: { gte: startOfMonth }, seconds: { not: null } },
         _count: true,
+        _sum: { seconds: true },
+      }),
+      prisma.captionUsage.aggregate({
+        where: { createdAt: { gte: startOfMonth } },
         _sum: { seconds: true },
       }),
       prisma.callSession.findMany({
@@ -55,6 +59,7 @@ export async function GET(req: NextRequest) {
     totalRooms,
     callsThisMonth: callsThisMonthAgg._count,
     minutesThisMonth: Math.round((callsThisMonthAgg._sum.seconds ?? 0) / 60),
+    captionMinutesThisMonth: Math.round((captionAgg._sum.seconds ?? 0) / 60),
     accounts: accounts.map((a) => ({
       email: a.email,
       plan: a.plan,
