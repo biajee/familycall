@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { captionSecondsRemaining } from "@/lib/plan";
 
-// Called server-to-server by the call server (a separate app, on its own
-// VPS — see callserver/server/familycall.js) when a phone joins a room.
+// Called server-to-server by the call server (a separate service, see
+// callserver/server/familycall.js) when a phone joins a room.
 // Bearer-secret pattern, same as every other internal endpoint in the
 // suite, but a DIFFERENT secret from zbackroom/ConfirmPO's
 // INTERNAL_API_SECRET — the call server accepts arbitrary inbound

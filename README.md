@@ -10,8 +10,9 @@ server.
 
 **The actual video/audio and live-caption engine lives in this same repo,
 at [`callserver/`](./callserver)** — but still deploys as its own process
-on its own VPS (WebRTC signaling, mic capture, speech-to-text streaming,
-coturn TURN relay), independently of this app. One repo, two deployments:
+(WebRTC signaling, mic capture, speech-to-text streaming, plus a coturn
+TURN relay), independently of this app, on the same box at
+`call.zbackroom.com`. One repo, two deployments:
 this app never touches media, it just creates rooms, generates the two
 shareable call links per room, tracks usage against a plan, and delegates
 identity to zbackroom.com. See [`callserver/README.md`](./callserver/README.md)

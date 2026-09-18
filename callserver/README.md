@@ -6,7 +6,7 @@ family member who is hard of hearing. Everything either person says is transcrib
 
 This is the call engine behind **FamilyCall** — it lives at `callserver/` inside the
 [`familycall`](https://github.com/biajee/familycall) repo (one source of truth, full history preserved via
-`git subtree`), but still **deploys as its own process on its own VPS**, separate from the `familycall` Next.js
+`git subtree`), but still **deploys as its own process** (`call.zbackroom.com`, same box as the app), separate from the `familycall` Next.js
 app (account creation, billing, room management, `familycall.zbackroom.com`) one directory up. This server
 optionally checks a room against that app before allowing a join and reports finished-call durations to it (see
 "FamilyCall shell integration" below) — but still runs standalone with zero configuration if you just want the
@@ -79,7 +79,38 @@ npm run test:e2e         # two headless Chrome "phones" with fake camera/mic: ca
                          # (puppeteer is a devDependency; `npm install` fetches it plus Chrome)
 ```
 
-## Deploy to the VPS
+## Production: the shared zbackroom box (`call.zbackroom.com`)
+
+This is where FamilyCall's call server runs, next to zbackroom, ConfirmPO, alerty and the FamilyCall app
+(port 3004 behind nginx, TLS via certbot, its own unprivileged `callserver` user, coturn for the relay).
+
+```bash
+# on your machine, from this directory (familycall/callserver/)
+bash deploy/sync.sh                       # rsync to zbackroom:/var/www/callserver (never touches .env or data)
+
+# first time only, on the server:
+ssh zbackroom 'cd /var/www/callserver && bash deploy/setup-zbackroom.sh'
+# then put the speech-to-text key in /var/www/callserver/.env (OPENAI_API_KEY=...) and restart:
+ssh zbackroom 'sudo systemctl restart callserver'
+
+# every later update, on the server:
+ssh zbackroom 'cd /var/www/callserver && bash deploy/deploy.sh'
+```
+
+`setup-zbackroom.sh` is safe to re-run (it keeps `.env`). It does **not** touch the firewall and never runs
+`ufw`: on this AWS box the **security group** is the firewall, and it has to allow, for calls between two
+different networks to connect through the relay: **TCP+UDP 3478**, **TCP 5349**, **UDP 49152–49951** (the relay
+range, deliberately narrower than the standalone installer's; widen `max-port` in `deploy/turnserver-zbackroom.conf`
+and the security group together if you ever run out). Ports 80/443 are already open. Check reachability from
+outside with a STUN request to `call.zbackroom.com:3478`.
+
+Logs: `journalctl -u callserver -f`, `tail -f /var/log/turnserver.log`. The FamilyCall app and this server share
+`FAMILYCALL_INTERNAL_SECRET` (each in its own `.env`, `/var/www/familycall/.env` and `/var/www/callserver/.env`).
+
+## Deploy to a dedicated VPS (alternative)
+
+Not what production uses now. The installer below is for a fresh machine that has nothing else on it: it
+brings its own Caddy and **enables `ufw`**, so don't run it on the shared box.
 
 ```bash
 # on your machine, from this directory (familycall/callserver/) — only

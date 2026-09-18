@@ -1,0 +1,26 @@
+[Unit]
+Description=FamilyCall call server (signaling + live captions)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# A dedicated unprivileged user, not `ubuntu`: this process takes arbitrary
+# WebSocket connections from the internet and sits on the same box as the
+# other apps' databases and .env files, so it shouldn't be able to read them.
+User=callserver
+Group=callserver
+WorkingDirectory=/var/www/callserver
+# .env is read by server/config.js itself (systemd's EnvironmentFile parser
+# would keep inline comments in the values).
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/callserver
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

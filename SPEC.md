@@ -13,10 +13,10 @@ lives at `callserver/` in this same repo** (merged in from its original
 `stt_videocall` repo via `git subtree` — full commit history preserved,
 just check `git log <merge-commit>^2` if `git log -- callserver/` looks
 short, since `git log`'s default simplification collapses merge history).
-It still **deploys independently, on its own VPS** — WebRTC signaling, mic
+It still **deploys independently, as its own process** at
+`call.zbackroom.com` on the same box as this app — WebRTC signaling, mic
 capture, speech-to-text streaming, and the coturn TURN relay all live
-there, unchanged by this app's existence or by which repo the source sits
-in. This app and the call server talk to each other over two small
+there, unchanged by which repo the source sits in. This app and the call server talk to each other over two small
 server-to-server endpoints (below) — nothing about the call server's own
 URL query-param contract (`room`/`name`/`lang`/`ui`/`simple`/`font`)
 changed to support this.
@@ -221,11 +221,22 @@ setting live at zbackroom.com, not here.
 
 Same Ubuntu box as zbackroom/ConfirmPO/alerty, SSH alias `zbackroom`. This app
 lives at `/var/www/familycall`, runs as systemd service `familycall` on
-port 3003 (3000 is ConfirmPO, 3001 zbackroom, 3002 alerty), behind nginx (`deploy/nginx-familycall.conf` proxies
-`familycall.zbackroom.com` → `127.0.0.1:3003`). The call server
-(`callserver/`) is a **separate VPS, unchanged deploy, despite now living
-in this repo** — nothing about its Caddy/coturn/systemd setup moves here;
-see `callserver/README.md`'s own "Deploy to the VPS" for that half.
+port 3003 (3000 is ConfirmPO, 3001 zbackroom, 3002 alerty, 3004 the call
+server), behind nginx (`deploy/nginx-familycall.conf` proxies
+`familycall.zbackroom.com` → `127.0.0.1:3003`).
+
+The call server (`callserver/`) is a **separate service on the same box**:
+`/var/www/callserver`, systemd unit `callserver` running as its own
+unprivileged `callserver` user (it takes arbitrary WebSocket connections from
+the internet and shares a machine with the other apps' databases, so it can't
+read their files), port 3004, `call.zbackroom.com` via nginx with WebSocket
+upgrade, plus **coturn** (the TURN/STUN relay phones on different networks
+need). It has its own `callserver/deploy/{sync,deploy,setup-zbackroom}.sh`;
+see `callserver/README.md`. **coturn needs ports the AWS security group must
+allow**, which no script here can do: TCP+UDP 3478, TCP 5349, UDP
+49152-49951. Without them, calls between two different networks (the whole
+US ↔ China use case) will not connect, even though everything else looks
+healthy.
 
 - **Sync code**: `deploy/sync.sh` (rsync, excludes `prisma/*.db*` **by
   wildcard, not a literal filename** — see zbackroom's SPEC.md for the
