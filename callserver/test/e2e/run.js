@@ -1,10 +1,9 @@
 /**
  * End-to-end test: two headless Chrome "phones" (separate browser contexts, fake camera + mic)
  * join the same room, establish a WebRTC call, exchange captions via the mock transcriber,
- * hang up and re-join. Needs puppeteer (npm i -D puppeteer) — also found in a sibling
- * project's node_modules as a convenience.
+ * hang up and re-join. Needs puppeteer, a devDependency of this project (npm install).
  */
-import { createRequire } from 'node:module';
+import puppeteer from 'puppeteer';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
@@ -12,24 +11,6 @@ import { createApp } from '../../server/app.js';
 import { loadConfig } from '../../server/config.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-
-function loadPuppeteer() {
-  // The sibling-project fallback is one directory deeper here than in a
-  // standalone checkout (test/e2e -> callserver -> familycall -> ~/Documents/code),
-  // since this now lives nested under the familycall repo (see its git history).
-  const candidates = ['puppeteer', resolve(here, '../../../../turtlebot/node_modules/puppeteer')];
-  for (const c of candidates) {
-    try {
-      return require(c);
-    } catch (e) {
-      if (e.code !== 'MODULE_NOT_FOUND') throw e;
-    }
-  }
-  throw new Error('puppeteer not found: run `npm i -D puppeteer`');
-}
-
-const puppeteer = loadPuppeteer();
 const artifacts = resolve(here, 'artifacts');
 mkdirSync(artifacts, { recursive: true });
 

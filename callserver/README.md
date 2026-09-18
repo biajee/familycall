@@ -76,7 +76,7 @@ Tests:
 ```bash
 npm test                 # unit + integration tests (rooms, TURN creds, resampler, providers, WebSocket flow)
 npm run test:e2e         # two headless Chrome "phones" with fake camera/mic: call + captions + hang-up + re-join
-                         # (needs puppeteer: npm i -D puppeteer)
+                         # (puppeteer is a devDependency; `npm install` fetches it plus Chrome)
 ```
 
 ## Deploy to the VPS
