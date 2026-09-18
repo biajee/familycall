@@ -9,9 +9,9 @@ import { log } from "@/lib/log";
 // lookup miss here just acks 200 rather than erroring — a usage-reporting
 // failure must never be the reason a call couldn't end cleanly.
 export async function POST(req: NextRequest) {
-  const secret = process.env.INTERNAL_API_SECRET;
+  const secret = process.env.FAMILYCALL_INTERNAL_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "INTERNAL_API_SECRET not configured" }, { status: 500 });
+    return NextResponse.json({ error: "FAMILYCALL_INTERNAL_SECRET not configured" }, { status: 500 });
   }
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${secret}`) {

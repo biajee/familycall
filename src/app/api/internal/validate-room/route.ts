@@ -15,9 +15,9 @@ import { minutesRemaining } from "@/lib/plan";
 // 200 with ok:false means the room IS real but this month's plan quota is
 // used up — a different, friendlier message than "room not found".
 export async function GET(req: NextRequest) {
-  const secret = process.env.INTERNAL_API_SECRET;
+  const secret = process.env.FAMILYCALL_INTERNAL_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "INTERNAL_API_SECRET not configured" }, { status: 500 });
+    return NextResponse.json({ error: "FAMILYCALL_INTERNAL_SECRET not configured" }, { status: 500 });
   }
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${secret}`) {

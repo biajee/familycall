@@ -94,16 +94,17 @@ These are the only two points where this app and the call server
 (`stt_videocall`, its own repo and VPS) talk to each other. Both are
 bearer-secret, server-to-server only — never call either from a browser.
 
-**The bearer secret is `INTERNAL_API_SECRET` on this app's side, but
-`FAMILYCALL_INTERNAL_SECRET` on the call server's side — a deliberately
-different value from zbackroom/ConfirmPO's shared `INTERNAL_API_SECRET`.**
+**The bearer secret is `FAMILYCALL_INTERNAL_SECRET` — its own env var on
+both sides, identical between this app's `.env` and the call server's
+`.env`, and deliberately a DIFFERENT value from the suite-shared
+`INTERNAL_API_SECRET`** (which this app still uses separately, for its own
+`getCurrentUser()` call to zbackroom and for `/api/internal/admin-data`).
 The call server accepts arbitrary inbound WebSocket connections from the
 open internet (a materially bigger attack surface than any other app in
 the suite), so it shouldn't hold a secret that would also let a caller
-resolve zbackroom sessions or read ConfirmPO's admin data. Generate this
-one independently with `openssl rand -hex 32` and set it only in this
-app's `.env` (`INTERNAL_API_SECRET`) and the call server's `.env`
-(`FAMILYCALL_INTERNAL_SECRET`).
+resolve zbackroom sessions or read ConfirmPO's admin data. Generate it
+independently with `openssl rand -hex 32` and set the same value as
+`FAMILYCALL_INTERNAL_SECRET` in both `.env` files.
 
 - `GET /api/internal/validate-room?slug=<slug>` — called by the call
   server's `server/familycall.js: validateRoom()` before/at join.
