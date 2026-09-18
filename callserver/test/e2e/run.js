@@ -15,7 +15,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 function loadPuppeteer() {
-  const candidates = ['puppeteer', resolve(here, '../../../turtlebot/node_modules/puppeteer')];
+  // The sibling-project fallback is one directory deeper here than in a
+  // standalone checkout (test/e2e -> callserver -> familycall -> ~/Documents/code),
+  // since this now lives nested under the familycall repo (see its git history).
+  const candidates = ['puppeteer', resolve(here, '../../../../turtlebot/node_modules/puppeteer')];
   for (const c of candidates) {
     try {
       return require(c);

@@ -4,11 +4,13 @@ A self-hosted, one-to-one **video call app with live captions in Mandarin Chines
 family member who is hard of hearing. Everything either person says is transcribed and shown as large text on
 **both** phones, in real time.
 
-This is the call engine behind **FamilyCall** — account creation, billing, and room management now live in a
-separate app, [`familycall`](https://github.com/biajee/familycall) (`familycall.zbackroom.com`), which this
-server optionally checks a room against before allowing a join and reports finished-call durations to (see
-"FamilyCall shell integration" below). This server still runs standalone with zero configuration if you just
-want the original single-family setup — nothing about that path changed.
+This is the call engine behind **FamilyCall** — it lives at `callserver/` inside the
+[`familycall`](https://github.com/biajee/familycall) repo (one source of truth, full history preserved via
+`git subtree`), but still **deploys as its own process on its own VPS**, separate from the `familycall` Next.js
+app (account creation, billing, room management, `familycall.zbackroom.com`) one directory up. This server
+optionally checks a room against that app before allowing a join and reports finished-call durations to it (see
+"FamilyCall shell integration" below) — but still runs standalone with zero configuration if you just want the
+original single-family setup; nothing about that path changed.
 
 It was designed around one specific situation — a daughter in the USA calling her father in mainland China — so it
 deliberately avoids every service the Great Firewall blocks (Google STUN, Firebase, App Store distribution to
@@ -80,7 +82,9 @@ npm run test:e2e         # two headless Chrome "phones" with fake camera/mic: ca
 ## Deploy to the VPS
 
 ```bash
-# on your machine
+# on your machine, from this directory (familycall/callserver/) — only
+# this subtree goes to the call server's VPS, not the rest of the
+# familycall repo
 rsync -a --exclude node_modules --exclude .env ./ root@YOUR_VPS:/root/stt-videocall/
 
 # on the VPS

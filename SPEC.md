@@ -8,11 +8,15 @@ app has no login pages, password storage, or session table of its own.
 Read `../zbackroom/SPEC.md` first for the cross-app contract this app
 depends on (the shared cookie, the internal validate-session API).
 
-**The actual video/audio and captioning happens in a separate app**,
-`stt_videocall` (repo: `git@github.com:biajee/stt_videocall.git`), deployed
-on its own VPS — WebRTC signaling, mic capture, speech-to-text streaming,
-and the coturn TURN relay all live there, unchanged by this app's
-existence. This app and the call server talk to each other over two small
+**The actual video/audio and captioning happens in a separate app that
+lives at `callserver/` in this same repo** (merged in from its original
+`stt_videocall` repo via `git subtree` — full commit history preserved,
+just check `git log <merge-commit>^2` if `git log -- callserver/` looks
+short, since `git log`'s default simplification collapses merge history).
+It still **deploys independently, on its own VPS** — WebRTC signaling, mic
+capture, speech-to-text streaming, and the coturn TURN relay all live
+there, unchanged by this app's existence or by which repo the source sits
+in. This app and the call server talk to each other over two small
 server-to-server endpoints (below) — nothing about the call server's own
 URL query-param contract (`room`/`name`/`lang`/`ui`/`simple`/`font`)
 changed to support this.
@@ -91,8 +95,9 @@ use plain unguessable links and never sign in.
 ## Call-server integration contract
 
 These are the only two points where this app and the call server
-(`stt_videocall`, its own repo and VPS) talk to each other. Both are
-bearer-secret, server-to-server only — never call either from a browser.
+(`callserver/`, its own deploy despite living in this repo now) talk to
+each other. Both are bearer-secret, server-to-server only — never call
+either from a browser.
 
 **The bearer secret is `FAMILYCALL_INTERNAL_SECRET` — its own env var on
 both sides, identical between this app's `.env` and the call server's
@@ -168,8 +173,9 @@ Same Ubuntu box as zbackroom/ConfirmPO, SSH alias `zbackroom`. This app
 lives at `/var/www/familycall`, runs as systemd service `familycall` on
 port 3002, behind nginx (`deploy/nginx-familycall.conf` proxies
 `familycall.zbackroom.com` → `127.0.0.1:3002`). The call server
-(`stt_videocall`) is a **separate VPS, unchanged deploy** — nothing about
-its Caddy/coturn/systemd setup moves here.
+(`callserver/`) is a **separate VPS, unchanged deploy, despite now living
+in this repo** — nothing about its Caddy/coturn/systemd setup moves here;
+see `callserver/README.md`'s own "Deploy to the VPS" for that half.
 
 - **Sync code**: `deploy/sync.sh` (rsync, excludes `prisma/*.db*` **by
   wildcard, not a literal filename** — see zbackroom's SPEC.md for the

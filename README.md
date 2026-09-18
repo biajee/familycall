@@ -8,11 +8,14 @@ management** shell — one login/subscription across the
 for the architecture and the contract this app shares with the call
 server.
 
-**The actual video/audio and live-caption engine is a separate app**,
-`stt_videocall`, deployed on its own VPS (WebRTC signaling, mic capture,
-speech-to-text streaming, coturn TURN relay) — this app never touches
-media, it just creates rooms, generates the two shareable call links per
-room, tracks usage against a plan, and delegates identity to zbackroom.com.
+**The actual video/audio and live-caption engine lives in this same repo,
+at [`callserver/`](./callserver)** — but still deploys as its own process
+on its own VPS (WebRTC signaling, mic capture, speech-to-text streaming,
+coturn TURN relay), independently of this app. One repo, two deployments:
+this app never touches media, it just creates rooms, generates the two
+shareable call links per room, tracks usage against a plan, and delegates
+identity to zbackroom.com. See [`callserver/README.md`](./callserver/README.md)
+for that half.
 
 ## Local dev
 
@@ -21,6 +24,10 @@ npm install
 npx prisma db push   # creates/updates dev.db
 npm run dev
 ```
+
+`callserver/` is a separate Node project with its own `package.json` —
+`cd callserver && npm install && npm run dev` to run it locally too (see
+its own README for the STT provider setup).
 
 Needs a `.env` — copy `.env.example` and fill it in. To actually sign in
 locally you need zbackroom running too (`ZBACKROOM_URL` pointed at it, and
