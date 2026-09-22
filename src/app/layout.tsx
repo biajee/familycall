@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GoogleTag } from "@/components/GoogleTag";
 import Link from "next/link";
 import "./globals.css";
 import { getCurrentUser, zbackroomLoginUrl, zbackroomLogoutUrl } from "@/lib/auth";
@@ -20,6 +21,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
+      <head>
+        <GoogleTag />
+      </head>
       <body>
         <header className="site-header">
           <div className="wrap">
